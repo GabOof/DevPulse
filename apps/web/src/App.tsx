@@ -2,38 +2,97 @@ import { useState } from "react";
 
 import "./App.css";
 
+import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { RepositoryCard } from "./components/RepositoryCard";
 import { SearchRepositoryForm } from "./components/SearchRepositoryForm";
 
-import { getRepository } from "./services/api";
+import { getRepository, getRepositoryAnalytics } from "./services/api";
+
+import type { AnalyticsPeriod, RepositoryAnalytics } from "./types/analytics";
 
 import type { Repository } from "./types/repository";
+
+interface SelectedRepository {
+    owner: string;
+    repo: string;
+}
 
 function App() {
     const [repository, setRepository] = useState<Repository | null>(null);
 
+    const [analytics, setAnalytics] = useState<RepositoryAnalytics | null>(null);
+
+    const [selectedRepository, setSelectedRepository] = useState<SelectedRepository | null>(null);
+
+    const [period, setPeriod] = useState<AnalyticsPeriod>(30);
+
     const [loading, setLoading] = useState(false);
+
+    const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
     const [error, setError] = useState<string | null>(null);
 
     async function handleSearch(owner: string, repo: string) {
         try {
             setLoading(true);
+
             setError(null);
             setRepository(null);
+            setAnalytics(null);
 
-            const data = await getRepository(owner, repo);
+            const initialPeriod: AnalyticsPeriod = 30;
 
-            setRepository(data);
+            const [repositoryData, analyticsData] = await Promise.all([
+                getRepository(owner, repo),
+
+                getRepositoryAnalytics(owner, repo, initialPeriod),
+            ]);
+
+            setRepository(repositoryData);
+            setAnalytics(analyticsData);
+
+            setSelectedRepository({
+                owner,
+                repo,
+            });
+
+            setPeriod(initialPeriod);
         } catch (error) {
             if (error instanceof Error) {
                 setError(error.message);
-                return;
+            } else {
+                setError("Ocorreu um erro inesperado.");
             }
-
-            setError("Ocorreu um erro inesperado.");
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function handlePeriodChange(newPeriod: AnalyticsPeriod) {
+        if (!selectedRepository || newPeriod === period) {
+            return;
+        }
+
+        try {
+            setAnalyticsLoading(true);
+            setError(null);
+
+            const analyticsData = await getRepositoryAnalytics(
+                selectedRepository.owner,
+                selectedRepository.repo,
+                newPeriod
+            );
+
+            setAnalytics(analyticsData);
+            setPeriod(newPeriod);
+        } catch (error) {
+            if (error instanceof Error) {
+                setError(error.message);
+            } else {
+                setError("Não foi possível atualizar as métricas.");
+            }
+        } finally {
+            setAnalyticsLoading(false);
         }
     }
 
@@ -46,7 +105,7 @@ function App() {
                     <span>DevPulse</span>
                 </a>
 
-                <span className="version">v0.1</span>
+                <span className="version">v0.2</span>
             </header>
 
             <main>
@@ -56,8 +115,8 @@ function App() {
                     <h1>Entenda a saúde dos seus projetos.</h1>
 
                     <p>
-                        Consulte repositórios GitHub e transforme dados de engenharia de software em
-                        informações úteis.
+                        Transforme dados de desenvolvimento do GitHub em métricas úteis sobre
+                        atividade, tecnologias e evolução do projeto.
                     </p>
 
                     <SearchRepositoryForm onSearch={handleSearch} loading={loading} />
@@ -65,7 +124,7 @@ function App() {
 
                 {error && (
                     <div className="error-message" role="alert">
-                        <strong>Não foi possível analisar</strong>
+                        <strong>Não foi possível concluir a análise</strong>
 
                         <span>{error}</span>
                     </div>
@@ -75,11 +134,20 @@ function App() {
                     <section className="loading-card">
                         <div className="loading-bar" />
 
-                        <span>Consultando dados do GitHub...</span>
+                        <span>Coletando e analisando dados do GitHub...</span>
                     </section>
                 )}
 
                 {repository && <RepositoryCard repository={repository} />}
+
+                {repository && analytics && (
+                    <AnalyticsDashboard
+                        analytics={analytics}
+                        period={period}
+                        loading={analyticsLoading}
+                        onPeriodChange={handlePeriodChange}
+                    />
+                )}
             </main>
 
             <footer className="app-footer">DevPulse · GitHub Project Analytics</footer>

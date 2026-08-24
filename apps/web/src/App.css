@@ -470,3 +470,296 @@ main {
         grid-template-columns: 1fr;
     }
 }
+
+.analytics-dashboard {
+    margin-top: 70px;
+}
+
+.analytics-header {
+    margin-bottom: 28px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 30px;
+}
+
+.analytics-header h2 {
+    margin: 5px 0 7px;
+
+    color: #f0f6fc;
+
+    font-size: 1.8rem;
+    letter-spacing: -0.025em;
+}
+
+.analytics-header p {
+    margin: 0;
+
+    color: #8b949e;
+
+    font-size: 0.9rem;
+}
+
+.period-selector {
+    display: flex;
+
+    padding: 3px;
+
+    border: 1px solid #21262d;
+    border-radius: 8px;
+
+    background: #0d1117;
+}
+
+.period-selector button {
+    min-width: 48px;
+
+    padding: 8px 11px;
+
+    border: 0;
+    border-radius: 6px;
+
+    background: transparent;
+    color: #8b949e;
+
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.period-selector button:hover {
+    color: #f0f6fc;
+}
+
+.period-selector button.active {
+    background: #21262d;
+    color: #f0f6fc;
+}
+
+.period-selector button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.analytics-summary {
+    display: grid;
+
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+
+    margin-bottom: 20px;
+
+    border: 1px solid #21262d;
+    border-radius: 12px;
+
+    background: #0d1117;
+
+    overflow: hidden;
+}
+
+.analytics-metric {
+    min-width: 0;
+
+    padding: 23px;
+
+    display: flex;
+    flex-direction: column;
+
+    border-right: 1px solid #21262d;
+}
+
+.analytics-metric:last-child {
+    border-right: 0;
+}
+
+.analytics-metric > span {
+    margin-bottom: 9px;
+
+    color: #6e7681;
+
+    font-size: 0.72rem;
+    font-weight: 600;
+
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.analytics-metric strong {
+    color: #f0f6fc;
+
+    font-size: 1.8rem;
+    line-height: 1;
+}
+
+.analytics-metric small {
+    margin-top: 8px;
+
+    color: #6e7681;
+
+    font-size: 0.72rem;
+}
+
+.analytics-grid {
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 1.7fr)
+        minmax(280px, 1fr);
+
+    gap: 20px;
+}
+
+.analytics-panel {
+    min-width: 0;
+
+    padding: 25px;
+
+    border: 1px solid #21262d;
+    border-radius: 12px;
+
+    background: #0d1117;
+}
+
+.panel-header {
+    margin-bottom: 25px;
+}
+
+.panel-eyebrow {
+    color: #6e7681;
+
+    font-size: 0.68rem;
+    font-weight: 700;
+
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.panel-header h3 {
+    margin: 5px 0 0;
+
+    color: #f0f6fc;
+
+    font-size: 1rem;
+}
+
+.chart-container {
+    width: 100%;
+    height: 310px;
+}
+
+.languages {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.language-header {
+    margin-bottom: 8px;
+
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.language-header strong {
+    color: #c9d1d9;
+
+    font-size: 0.82rem;
+}
+
+.language-header span {
+    color: #6e7681;
+
+    font-size: 0.75rem;
+}
+
+.language-bar {
+    width: 100%;
+    height: 6px;
+
+    overflow: hidden;
+
+    border-radius: 999px;
+
+    background: #21262d;
+}
+
+.language-progress {
+    height: 100%;
+
+    border-radius: inherit;
+
+    background: #58a6ff;
+}
+
+.analytics-warning {
+    margin-bottom: 20px;
+    padding: 14px 17px;
+
+    border: 1px solid #d2992240;
+    border-radius: 8px;
+
+    background: #d299220c;
+    color: #d29922;
+
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.empty-state {
+    color: #6e7681;
+
+    font-size: 0.85rem;
+}
+
+@media (max-width: 850px) {
+    .analytics-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .analytics-metric:nth-child(2) {
+        border-right: 0;
+    }
+
+    .analytics-metric:nth-child(-n + 2) {
+        border-bottom: 1px solid #21262d;
+    }
+
+    .analytics-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .analytics-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .analytics-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .analytics-metric {
+        border-right: 0;
+        border-bottom: 1px solid #21262d;
+    }
+
+    .analytics-metric:last-child {
+        border-bottom: 0;
+    }
+
+    .period-selector {
+        width: 100%;
+    }
+
+    .period-selector button {
+        flex: 1;
+    }
+
+    .chart-container {
+        height: 260px;
+    }
+}
