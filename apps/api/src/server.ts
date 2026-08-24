@@ -1,6 +1,8 @@
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 
+import { repositoryRoutes } from "./routes/repository.routes.js";
+
 const app = Fastify({
     logger: true,
 });
@@ -14,6 +16,10 @@ app.get("/health", async () => {
         status: "ok",
         service: "devpulse-api",
     };
+});
+
+await app.register(repositoryRoutes, {
+    prefix: "/api",
 });
 
 const start = async () => {
