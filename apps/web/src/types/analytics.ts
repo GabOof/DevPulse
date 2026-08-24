@@ -64,7 +64,6 @@ export interface AnalyzedCommit {
 
 export interface CommitIntelligence {
     conventionalCommits: number;
-
     conventionalPercentage: number;
 
     breakingChanges: number;
@@ -84,7 +83,6 @@ export interface RepositoryAnalytics {
     summary: {
         totalCommits: number;
         activeDays: number;
-
         averageCommitsPerActiveDay: number;
 
         busiestDay: {
@@ -101,3 +99,5 @@ export interface RepositoryAnalytics {
 
     truncated: boolean;
 }
+
+export type AnalyticsPeriod = 7 | 30 | 90;

@@ -4,6 +4,8 @@ import { AnalyticsSummary } from "./AnalyticsSummary";
 import { CommitActivityChart } from "./CommitActivityChart";
 import { LanguageDistribution } from "./LanguageDistribution";
 
+import { CommitIntelligencePanel } from "./CommitIntelligencePanel";
+
 interface AnalyticsDashboardProps {
     analytics: RepositoryAnalytics;
     period: AnalyticsPeriod;
@@ -61,6 +63,8 @@ export function AnalyticsDashboard({
 
                 <LanguageDistribution languages={analytics.languages} />
             </div>
+
+            <CommitIntelligencePanel intelligence={analytics.commitIntelligence} />
         </section>
     );
 }
