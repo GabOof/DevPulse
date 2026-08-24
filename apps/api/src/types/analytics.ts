@@ -35,6 +35,45 @@ export interface LanguageUsage {
     percentage: number;
 }
 
+export type CommitCategory = "feature" | "fix" | "refactor" | "docs" | "test" | "chore" | "other";
+
+export interface CommitCategoryStats {
+    category: CommitCategory;
+    count: number;
+    percentage: number;
+}
+
+export interface AnalyzedCommit {
+    sha: string;
+    shortSha: string;
+
+    message: string;
+
+    category: CommitCategory;
+
+    conventional: boolean;
+    breakingChange: boolean;
+
+    author: string;
+    authorUsername: string | null;
+
+    date: string;
+
+    url: string;
+}
+
+export interface CommitIntelligence {
+    conventionalCommits: number;
+
+    conventionalPercentage: number;
+
+    breakingChanges: number;
+
+    categories: CommitCategoryStats[];
+
+    recentCommits: AnalyzedCommit[];
+}
+
 export interface RepositoryAnalytics {
     period: {
         days: number;
@@ -56,6 +95,8 @@ export interface RepositoryAnalytics {
     activity: DailyActivity[];
 
     languages: LanguageUsage[];
+
+    commitIntelligence: CommitIntelligence;
 
     truncated: boolean;
 }
