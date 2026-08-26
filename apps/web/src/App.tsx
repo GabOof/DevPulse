@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import "./App.css";
 
@@ -13,29 +13,112 @@ import {
     saveRepositoryAnalysis,
 } from "./services/api";
 
+import { getCurrentUser, getGitHubLoginUrl, logout } from "./services/auth";
+
 import type { AnalysisHistoryItem, AnalyticsPeriod, RepositoryAnalytics } from "./types/analytics";
 
 import type { Repository } from "./types/repository";
+
+import type { AuthUser } from "./types/auth";
 
 interface SelectedRepository {
     owner: string;
     repo: string;
 }
 
-function App() {
-    const [repository, setRepository] = useState<Repository | null>(null);
+const INITIAL_PERIOD: AnalyticsPeriod = 30;
 
-    const [analytics, setAnalytics] = useState<RepositoryAnalytics | null>(null);
+/*
+ * Permite pesquisar usando:
+ *
+ * GabOof/ouroguel
+ *
+ * ou:
+ *
+ * https://github.com/GabOof/ouroguel
+ */
+function parseRepositoryInput(input: string): SelectedRepository | null {
+    const value = input.trim();
+
+    if (!value) {
+        return null;
+    }
+
+    /*
+     * URL completa do GitHub.
+     */
+    if (value.startsWith("https://github.com/") || value.startsWith("http://github.com/")) {
+        try {
+            const url = new URL(value);
+
+            const parts = url.pathname.split("/").filter(Boolean);
+
+            if (parts.length < 2) {
+                return null;
+            }
+
+            return {
+                owner: parts[0],
+                repo: parts[1].replace(/\.git$/, ""),
+            };
+        } catch {
+            return null;
+        }
+    }
+
+    /*
+     * Formato owner/repository.
+     */
+    const parts = value.split("/").filter(Boolean);
+
+    if (parts.length !== 2) {
+        return null;
+    }
+
+    return {
+        owner: parts[0],
+        repo: parts[1].replace(/\.git$/, ""),
+    };
+}
+
+function App() {
+    /*
+     * ============================
+     * AUTENTICAÇÃO
+     * ============================
+     */
+
+    const [user, setUser] = useState<AuthUser | null>(null);
+
+    const [authLoading, setAuthLoading] = useState(true);
+
+    /*
+     * ============================
+     * REPOSITÓRIO
+     * ============================
+     */
+
+    const [repository, setRepository] = useState<Repository | null>(null);
 
     const [selectedRepository, setSelectedRepository] = useState<SelectedRepository | null>(null);
 
-    const [period, setPeriod] = useState<AnalyticsPeriod>(30);
+    /*
+     * ============================
+     * ANALYTICS
+     * ============================
+     */
 
-    const [loading, setLoading] = useState(false);
+    const [analytics, setAnalytics] = useState<RepositoryAnalytics | null>(null);
+
+    const [period, setPeriod] = useState<AnalyticsPeriod>(INITIAL_PERIOD);
 
     const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
-    const [error, setError] = useState<string | null>(null);
+    /*
+     * ============================
+     * HISTÓRICO
+     * ============================
+     */
 
     const [history, setHistory] = useState<AnalysisHistoryItem[]>([]);
 
@@ -45,69 +128,251 @@ function App() {
 
     const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
 
-    async function handleSearch(owner: string, repo: string) {
+    /*
+     * ============================
+     * ESTADO GERAL
+     * ============================
+     */
+
+    const [loading, setLoading] = useState(false);
+
+    const [error, setError] = useState<string | null>(null);
+
+    /*
+     * ============================
+     * RECUPERAR SESSÃO
+     * ============================
+     */
+
+    useEffect(() => {
+        async function loadSession() {
+            try {
+                const auth = await getCurrentUser();
+
+                if (auth.authenticated) {
+                    setUser(auth.user);
+                } else {
+                    setUser(null);
+                }
+            } catch {
+                /*
+                 * Falha ao verificar a sessão
+                 * não deve impedir o uso
+                 * público do DevPulse.
+                 */
+                setUser(null);
+            } finally {
+                setAuthLoading(false);
+
+                /*
+                 * O callback OAuth retorna:
+                 *
+                 * /?auth=success
+                 *
+                 * Depois de verificarmos a
+                 * sessão, removemos o parâmetro.
+                 */
+                const url = new URL(window.location.href);
+
+                if (url.searchParams.has("auth")) {
+                    url.searchParams.delete("auth");
+
+                    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+                }
+            }
+        }
+
+        void loadSession();
+    }, []);
+
+    /*
+     * ============================
+     * LOGIN
+     * ============================
+     */
+
+    function handleLogin() {
+        window.location.assign(getGitHubLoginUrl());
+    }
+
+    /*
+     * ============================
+     * LOGOUT
+     * ============================
+     */
+
+    async function handleLogout() {
         try {
-            setSnapshotMessage(null);
+            setError(null);
+
+            await logout();
+
+            setUser(null);
+
+            /*
+             * Histórico pertence ao usuário,
+             * então limpamos ao sair.
+             */
             setHistory([]);
+
+            setSnapshotMessage(null);
+        } catch (logoutError) {
+            if (logoutError instanceof Error) {
+                setError(logoutError.message);
+            } else {
+                setError("Não foi possível realizar logout.");
+            }
+        }
+    }
+
+    /*
+     * ============================
+     * BUSCAR REPOSITÓRIO
+     * ============================
+     */
+
+    async function handleSearch(repositoryInput: string) {
+        const parsedRepository = parseRepositoryInput(repositoryInput);
+
+        if (!parsedRepository) {
+            setError("Informe um repositório no formato owner/repository ou uma URL do GitHub.");
+
+            return;
+        }
+
+        const { owner, repo } = parsedRepository;
+
+        try {
             setLoading(true);
 
+            setAnalyticsLoading(true);
+
+            setHistoryLoading(Boolean(user));
+
             setError(null);
-            setRepository(null);
-            setAnalytics(null);
 
-            const initialPeriod: AnalyticsPeriod = 30;
+            setSnapshotMessage(null);
 
+            setHistory([]);
+
+            /*
+             * Toda nova busca começa
+             * novamente em 30 dias.
+             */
+            const initialPeriod = INITIAL_PERIOD;
+
+            setPeriod(initialPeriod);
+
+            /*
+             * Usuários autenticados têm
+             * histórico privado.
+             *
+             * Visitantes não fazem chamada
+             * ao endpoint protegido.
+             */
+            const historyRequest = user
+                ? getRepositoryHistory(owner, repo, initialPeriod)
+                : Promise.resolve({
+                      repository: `${owner}/${repo}`,
+
+                      history: [],
+                  });
+
+            /*
+             * Overview, analytics e
+             * histórico são independentes.
+             *
+             * Executamos concorrentemente.
+             */
             const [repositoryData, analyticsData, historyData] = await Promise.all([
                 getRepository(owner, repo),
 
                 getRepositoryAnalytics(owner, repo, initialPeriod),
 
-                getRepositoryHistory(owner, repo, initialPeriod),
+                historyRequest,
             ]);
-
-            setRepository(repositoryData);
-
-            setAnalytics(analyticsData);
-
-            setHistory(historyData.history);
 
             setSelectedRepository({
                 owner,
                 repo,
             });
 
-            setPeriod(initialPeriod);
-        } catch (error) {
-            if (error instanceof Error) {
-                setError(error.message);
+            setRepository(repositoryData);
+
+            setAnalytics(analyticsData);
+
+            setHistory(historyData.history);
+        } catch (searchError) {
+            /*
+             * Limpamos dados antigos para
+             * não mostrar outro repositório
+             * junto com a mensagem de erro.
+             */
+            setRepository(null);
+
+            setAnalytics(null);
+
+            setHistory([]);
+
+            setSelectedRepository(null);
+
+            if (searchError instanceof Error) {
+                setError(searchError.message);
             } else {
-                setError("Ocorreu um erro inesperado.");
+                setError("Não foi possível analisar o repositório.");
             }
         } finally {
             setLoading(false);
+
+            setAnalyticsLoading(false);
+
+            setHistoryLoading(false);
         }
     }
 
+    /*
+     * ============================
+     * ALTERAR PERÍODO
+     * ============================
+     */
+
     async function handlePeriodChange(newPeriod: AnalyticsPeriod) {
-        if (!selectedRepository || newPeriod === period) {
+        if (!selectedRepository) {
             return;
         }
 
+        /*
+         * Não precisamos refazer
+         * a requisição se o usuário
+         * clicar no período atual.
+         */
+        if (newPeriod === period) {
+            return;
+        }
+
+        const { owner, repo } = selectedRepository;
+
         try {
             setAnalyticsLoading(true);
+
+            setHistoryLoading(Boolean(user));
+
             setError(null);
 
-            setHistoryLoading(true);
             setSnapshotMessage(null);
 
-            const [analyticsData, historyData] = await Promise.all([
-                getRepositoryAnalytics(
-                    selectedRepository.owner,
-                    selectedRepository.repo,
-                    newPeriod
-                ),
+            const historyRequest = user
+                ? getRepositoryHistory(owner, repo, newPeriod)
+                : Promise.resolve({
+                      repository: `${owner}/${repo}`,
 
-                getRepositoryHistory(selectedRepository.owner, selectedRepository.repo, newPeriod),
+                      history: [],
+                  });
+
+            const [analyticsData, historyData] = await Promise.all([
+                getRepositoryAnalytics(owner, repo, newPeriod),
+
+                historyRequest,
             ]);
 
             setAnalytics(analyticsData);
@@ -115,42 +380,68 @@ function App() {
             setHistory(historyData.history);
 
             setPeriod(newPeriod);
-        } catch (error) {
-            if (error instanceof Error) {
-                setError(error.message);
+        } catch (periodError) {
+            if (periodError instanceof Error) {
+                setError(periodError.message);
             } else {
-                setError("Não foi possível atualizar as métricas.");
+                setError("Não foi possível atualizar o período da análise.");
             }
         } finally {
             setAnalyticsLoading(false);
+
             setHistoryLoading(false);
         }
     }
+
+    /*
+     * ============================
+     * SALVAR SNAPSHOT
+     * ============================
+     */
 
     async function handleSaveSnapshot() {
         if (!selectedRepository) {
             return;
         }
 
+        if (!user) {
+            setSnapshotMessage("Entre com GitHub para salvar snapshots.");
+
+            return;
+        }
+
+        const { owner, repo } = selectedRepository;
+
         try {
             setSnapshotSaving(true);
+
             setSnapshotMessage(null);
+
             setError(null);
 
-            await saveRepositoryAnalysis(selectedRepository.owner, selectedRepository.repo, period);
+            /*
+             * POST /analyze realiza uma
+             * nova coleta antes de salvar.
+             *
+             * Portanto não persistimos
+             * dados possivelmente antigos
+             * existentes no navegador.
+             */
+            await saveRepositoryAnalysis(owner, repo, period);
 
-            const historyData = await getRepositoryHistory(
-                selectedRepository.owner,
-                selectedRepository.repo,
-                period
-            );
+            /*
+             * Depois de salvar, buscamos
+             * novamente o histórico para
+             * atualizar Project Evolution.
+             */
+            const historyData = await getRepositoryHistory(owner, repo, period);
 
             setHistory(historyData.history);
 
             setSnapshotMessage("Snapshot armazenado com sucesso.");
-        } catch (error) {
-            if (error instanceof Error) {
-                setError(error.message);
+        } catch (snapshotError) {
+            if (snapshotError instanceof Error) {
+                setError(snapshotError.message);
             } else {
                 setError("Não foi possível salvar o snapshot.");
             }
@@ -159,27 +450,63 @@ function App() {
         }
     }
 
+    /*
+     * ============================
+     * INTERFACE
+     * ============================
+     */
+
     return (
         <div className="app">
             <header className="app-header">
-                <a className="brand" href="/">
-                    <span className="brand-mark">DP</span>
+                <div className="brand">
+                    <div className="brand-mark">DP</div>
 
-                    <span>DevPulse</span>
-                </a>
+                    <div>
+                        <strong>DevPulse</strong>
 
-                <span className="version">v0.4</span>
+                        <span>Repository Intelligence</span>
+                    </div>
+                </div>
+
+                <div className="header-actions">
+                    <span className="version">v0.7</span>
+
+                    {authLoading ? (
+                        <span className="auth-loading">Verificando sessão...</span>
+                    ) : user ? (
+                        <div className="auth-user">
+                            {user.avatarUrl && (
+                                <img src={user.avatarUrl} alt={`Avatar de ${user.login}`} />
+                            )}
+
+                            <div>
+                                <strong>{user.login}</strong>
+
+                                {user.name && <span>{user.name}</span>}
+                            </div>
+
+                            <button type="button" onClick={() => void handleLogout()}>
+                                Sair
+                            </button>
+                        </div>
+                    ) : (
+                        <button type="button" className="github-login-button" onClick={handleLogin}>
+                            Entrar com GitHub
+                        </button>
+                    )}
+                </div>
             </header>
 
-            <main>
+            <main className="app-main">
                 <section className="hero">
-                    <span className="eyebrow">GitHub Repository Analytics</span>
+                    <span className="hero-eyebrow">GitHub Repository Analytics</span>
 
-                    <h1>Entenda a saúde dos seus projetos.</h1>
+                    <h1>Entenda a evolução do seu projeto.</h1>
 
                     <p>
-                        Transforme dados de desenvolvimento do GitHub em métricas úteis sobre
-                        atividade, tecnologias e evolução do projeto.
+                        Analise atividade, commits, colaboração, tecnologias e saúde de qualquer
+                        repositório do GitHub.
                     </p>
 
                     <SearchRepositoryForm onSearch={handleSearch} loading={loading} />
@@ -187,23 +514,13 @@ function App() {
 
                 {error && (
                     <div className="error-message" role="alert">
-                        <strong>Não foi possível concluir a análise</strong>
-
-                        <span>{error}</span>
+                        {error}
                     </div>
-                )}
-
-                {loading && (
-                    <section className="loading-card">
-                        <div className="loading-bar" />
-
-                        <span>Coletando e analisando dados do GitHub...</span>
-                    </section>
                 )}
 
                 {repository && <RepositoryCard repository={repository} />}
 
-                {repository && analytics && (
+                {analytics && (
                     <AnalyticsDashboard
                         analytics={analytics}
                         period={period}
@@ -212,13 +529,18 @@ function App() {
                         snapshotSaving={snapshotSaving}
                         history={history}
                         snapshotMessage={snapshotMessage}
+                        authenticated={Boolean(user)}
                         onPeriodChange={handlePeriodChange}
                         onSaveSnapshot={handleSaveSnapshot}
                     />
                 )}
             </main>
 
-            <footer className="app-footer">DevPulse · GitHub Project Analytics</footer>
+            <footer className="app-footer">
+                <span>DevPulse</span>
+
+                <span>GitHub Repository Intelligence Platform</span>
+            </footer>
         </div>
     );
 }
