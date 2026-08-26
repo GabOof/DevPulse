@@ -100,6 +100,61 @@ export interface CollaborationAnalytics {
     contributors: ContributorActivity[];
 }
 
+export interface AnalysisHistoryItem {
+    id: string;
+
+    periodDays: number;
+    analyzedAt: string;
+
+    totalCommits: number;
+    activeDays: number;
+    averageCommitsPerActiveDay: number;
+
+    stars: number;
+    forks: number;
+    openIssues: number;
+
+    conventionalPercentage: number;
+    breakingChanges: number;
+
+    totalContributors: number;
+
+    concentrationPercentage: number;
+    concentrationRisk: CollaborationRisk;
+
+    truncated: boolean;
+}
+
+export interface RepositoryHistory {
+    repository: string;
+    history: AnalysisHistoryItem[];
+}
+
+export interface SavedAnalysisResponse {
+    message: string;
+
+    snapshot: {
+        id: string;
+
+        repository: {
+            id: string;
+            githubId: string;
+            fullName: string;
+        };
+
+        periodDays: number;
+        analyzedAt: string;
+
+        summary: {
+            totalCommits: number;
+            activeDays: number;
+            conventionalPercentage: number;
+            totalContributors: number;
+            concentrationPercentage: number;
+        };
+    };
+}
+
 export interface RepositoryAnalytics {
     period: {
         days: number;
