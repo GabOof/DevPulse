@@ -51,3 +51,18 @@ export type Repository = Prisma.RepositoryModel
  * 
  */
 export type AnalysisSnapshot = Prisma.AnalysisSnapshotModel
+/**
+ * Model User
+ * 
+ */
+export type User = Prisma.UserModel
+/**
+ * Model GitHubCredential
+ * 
+ */
+export type GitHubCredential = Prisma.GitHubCredentialModel
+/**
+ * Model Session
+ * 
+ */
+export type Session = Prisma.SessionModel

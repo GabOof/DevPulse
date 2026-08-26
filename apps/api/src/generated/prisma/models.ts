@@ -10,4 +10,7 @@
  */
 export type * from './models/Repository.js'
 export type * from './models/AnalysisSnapshot.js'
+export type * from './models/User.js'
+export type * from './models/GitHubCredential.js'
+export type * from './models/Session.js'
 export type * from './commonInputTypes.js'

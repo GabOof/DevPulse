@@ -52,7 +52,10 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   Repository: 'Repository',
-  AnalysisSnapshot: 'AnalysisSnapshot'
+  AnalysisSnapshot: 'AnalysisSnapshot',
+  User: 'User',
+  GitHubCredential: 'GitHubCredential',
+  Session: 'Session'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -88,6 +91,7 @@ export type RepositoryScalarFieldEnum = (typeof RepositoryScalarFieldEnum)[keyof
 export const AnalysisSnapshotScalarFieldEnum = {
   id: 'id',
   repositoryId: 'repositoryId',
+  userId: 'userId',
   periodDays: 'periodDays',
   analyzedAt: 'analyzedAt',
   totalCommits: 'totalCommits',
@@ -112,6 +116,46 @@ export const AnalysisSnapshotScalarFieldEnum = {
 } as const
 
 export type AnalysisSnapshotScalarFieldEnum = (typeof AnalysisSnapshotScalarFieldEnum)[keyof typeof AnalysisSnapshotScalarFieldEnum]
+
+
+export const UserScalarFieldEnum = {
+  id: 'id',
+  githubId: 'githubId',
+  login: 'login',
+  name: 'name',
+  avatarUrl: 'avatarUrl',
+  profileUrl: 'profileUrl',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const GitHubCredentialScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  accessTokenEncrypted: 'accessTokenEncrypted',
+  accessTokenExpiresAt: 'accessTokenExpiresAt',
+  refreshTokenEncrypted: 'refreshTokenEncrypted',
+  refreshTokenExpiresAt: 'refreshTokenExpiresAt',
+  tokenType: 'tokenType',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type GitHubCredentialScalarFieldEnum = (typeof GitHubCredentialScalarFieldEnum)[keyof typeof GitHubCredentialScalarFieldEnum]
+
+
+export const SessionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  tokenHash: 'tokenHash',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
 
 
 export const SortOrder = {

@@ -61,6 +61,7 @@ export type AnalysisSnapshotSumAggregateOutputType = {
 export type AnalysisSnapshotMinAggregateOutputType = {
   id: string | null
   repositoryId: string | null
+  userId: string | null
   periodDays: number | null
   analyzedAt: Date | null
   totalCommits: number | null
@@ -83,6 +84,7 @@ export type AnalysisSnapshotMinAggregateOutputType = {
 export type AnalysisSnapshotMaxAggregateOutputType = {
   id: string | null
   repositoryId: string | null
+  userId: string | null
   periodDays: number | null
   analyzedAt: Date | null
   totalCommits: number | null
@@ -105,6 +107,7 @@ export type AnalysisSnapshotMaxAggregateOutputType = {
 export type AnalysisSnapshotCountAggregateOutputType = {
   id: number
   repositoryId: number
+  userId: number
   periodDays: number
   analyzedAt: number
   totalCommits: number
@@ -165,6 +168,7 @@ export type AnalysisSnapshotSumAggregateInputType = {
 export type AnalysisSnapshotMinAggregateInputType = {
   id?: true
   repositoryId?: true
+  userId?: true
   periodDays?: true
   analyzedAt?: true
   totalCommits?: true
@@ -187,6 +191,7 @@ export type AnalysisSnapshotMinAggregateInputType = {
 export type AnalysisSnapshotMaxAggregateInputType = {
   id?: true
   repositoryId?: true
+  userId?: true
   periodDays?: true
   analyzedAt?: true
   totalCommits?: true
@@ -209,6 +214,7 @@ export type AnalysisSnapshotMaxAggregateInputType = {
 export type AnalysisSnapshotCountAggregateInputType = {
   id?: true
   repositoryId?: true
+  userId?: true
   periodDays?: true
   analyzedAt?: true
   totalCommits?: true
@@ -322,6 +328,7 @@ export type AnalysisSnapshotGroupByArgs<ExtArgs extends runtime.Types.Extensions
 export type AnalysisSnapshotGroupByOutputType = {
   id: string
   repositoryId: string
+  userId: string | null
   periodDays: number
   analyzedAt: Date
   totalCommits: number
@@ -371,6 +378,7 @@ export type AnalysisSnapshotWhereInput = {
   NOT?: Prisma.AnalysisSnapshotWhereInput | Prisma.AnalysisSnapshotWhereInput[]
   id?: Prisma.StringFilter<"AnalysisSnapshot"> | string
   repositoryId?: Prisma.StringFilter<"AnalysisSnapshot"> | string
+  userId?: Prisma.StringNullableFilter<"AnalysisSnapshot"> | string | null
   periodDays?: Prisma.IntFilter<"AnalysisSnapshot"> | number
   analyzedAt?: Prisma.DateTimeFilter<"AnalysisSnapshot"> | Date | string
   totalCommits?: Prisma.IntFilter<"AnalysisSnapshot"> | number
@@ -393,11 +401,13 @@ export type AnalysisSnapshotWhereInput = {
   contributors?: Prisma.JsonFilter<"AnalysisSnapshot">
   truncated?: Prisma.BoolFilter<"AnalysisSnapshot"> | boolean
   repository?: Prisma.XOR<Prisma.RepositoryScalarRelationFilter, Prisma.RepositoryWhereInput>
+  user?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }
 
 export type AnalysisSnapshotOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   repositoryId?: Prisma.SortOrder
+  userId?: Prisma.SortOrderInput | Prisma.SortOrder
   periodDays?: Prisma.SortOrder
   analyzedAt?: Prisma.SortOrder
   totalCommits?: Prisma.SortOrder
@@ -420,6 +430,7 @@ export type AnalysisSnapshotOrderByWithRelationInput = {
   contributors?: Prisma.SortOrder
   truncated?: Prisma.SortOrder
   repository?: Prisma.RepositoryOrderByWithRelationInput
+  user?: Prisma.UserOrderByWithRelationInput
 }
 
 export type AnalysisSnapshotWhereUniqueInput = Prisma.AtLeast<{
@@ -428,6 +439,7 @@ export type AnalysisSnapshotWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.AnalysisSnapshotWhereInput[]
   NOT?: Prisma.AnalysisSnapshotWhereInput | Prisma.AnalysisSnapshotWhereInput[]
   repositoryId?: Prisma.StringFilter<"AnalysisSnapshot"> | string
+  userId?: Prisma.StringNullableFilter<"AnalysisSnapshot"> | string | null
   periodDays?: Prisma.IntFilter<"AnalysisSnapshot"> | number
   analyzedAt?: Prisma.DateTimeFilter<"AnalysisSnapshot"> | Date | string
   totalCommits?: Prisma.IntFilter<"AnalysisSnapshot"> | number
@@ -450,11 +462,13 @@ export type AnalysisSnapshotWhereUniqueInput = Prisma.AtLeast<{
   contributors?: Prisma.JsonFilter<"AnalysisSnapshot">
   truncated?: Prisma.BoolFilter<"AnalysisSnapshot"> | boolean
   repository?: Prisma.XOR<Prisma.RepositoryScalarRelationFilter, Prisma.RepositoryWhereInput>
+  user?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }, "id">
 
 export type AnalysisSnapshotOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   repositoryId?: Prisma.SortOrder
+  userId?: Prisma.SortOrderInput | Prisma.SortOrder
   periodDays?: Prisma.SortOrder
   analyzedAt?: Prisma.SortOrder
   totalCommits?: Prisma.SortOrder
@@ -489,6 +503,7 @@ export type AnalysisSnapshotScalarWhereWithAggregatesInput = {
   NOT?: Prisma.AnalysisSnapshotScalarWhereWithAggregatesInput | Prisma.AnalysisSnapshotScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"AnalysisSnapshot"> | string
   repositoryId?: Prisma.StringWithAggregatesFilter<"AnalysisSnapshot"> | string
+  userId?: Prisma.StringNullableWithAggregatesFilter<"AnalysisSnapshot"> | string | null
   periodDays?: Prisma.IntWithAggregatesFilter<"AnalysisSnapshot"> | number
   analyzedAt?: Prisma.DateTimeWithAggregatesFilter<"AnalysisSnapshot"> | Date | string
   totalCommits?: Prisma.IntWithAggregatesFilter<"AnalysisSnapshot"> | number
@@ -536,11 +551,13 @@ export type AnalysisSnapshotCreateInput = {
   contributors: Prisma.JsonNullValueInput | runtime.InputJsonValue
   truncated?: boolean
   repository: Prisma.RepositoryCreateNestedOneWithoutAnalysesInput
+  user?: Prisma.UserCreateNestedOneWithoutAnalysesInput
 }
 
 export type AnalysisSnapshotUncheckedCreateInput = {
   id?: string
   repositoryId: string
+  userId?: string | null
   periodDays: number
   analyzedAt?: Date | string
   totalCommits: number
@@ -588,11 +605,13 @@ export type AnalysisSnapshotUpdateInput = {
   contributors?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   truncated?: Prisma.BoolFieldUpdateOperationsInput | boolean
   repository?: Prisma.RepositoryUpdateOneRequiredWithoutAnalysesNestedInput
+  user?: Prisma.UserUpdateOneWithoutAnalysesNestedInput
 }
 
 export type AnalysisSnapshotUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   repositoryId?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   periodDays?: Prisma.IntFieldUpdateOperationsInput | number
   analyzedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   totalCommits?: Prisma.IntFieldUpdateOperationsInput | number
@@ -619,6 +638,7 @@ export type AnalysisSnapshotUncheckedUpdateInput = {
 export type AnalysisSnapshotCreateManyInput = {
   id?: string
   repositoryId: string
+  userId?: string | null
   periodDays: number
   analyzedAt?: Date | string
   totalCommits: number
@@ -670,6 +690,7 @@ export type AnalysisSnapshotUpdateManyMutationInput = {
 export type AnalysisSnapshotUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   repositoryId?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   periodDays?: Prisma.IntFieldUpdateOperationsInput | number
   analyzedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   totalCommits?: Prisma.IntFieldUpdateOperationsInput | number
@@ -706,6 +727,7 @@ export type AnalysisSnapshotOrderByRelationAggregateInput = {
 export type AnalysisSnapshotCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   repositoryId?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   periodDays?: Prisma.SortOrder
   analyzedAt?: Prisma.SortOrder
   totalCommits?: Prisma.SortOrder
@@ -748,6 +770,7 @@ export type AnalysisSnapshotAvgOrderByAggregateInput = {
 export type AnalysisSnapshotMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   repositoryId?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   periodDays?: Prisma.SortOrder
   analyzedAt?: Prisma.SortOrder
   totalCommits?: Prisma.SortOrder
@@ -770,6 +793,7 @@ export type AnalysisSnapshotMaxOrderByAggregateInput = {
 export type AnalysisSnapshotMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   repositoryId?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   periodDays?: Prisma.SortOrder
   analyzedAt?: Prisma.SortOrder
   totalCommits?: Prisma.SortOrder
@@ -879,6 +903,52 @@ export type BoolFieldUpdateOperationsInput = {
   set?: boolean
 }
 
+export type NullableStringFieldUpdateOperationsInput = {
+  set?: string | null
+}
+
+export type AnalysisSnapshotCreateNestedManyWithoutUserInput = {
+  create?: Prisma.XOR<Prisma.AnalysisSnapshotCreateWithoutUserInput, Prisma.AnalysisSnapshotUncheckedCreateWithoutUserInput> | Prisma.AnalysisSnapshotCreateWithoutUserInput[] | Prisma.AnalysisSnapshotUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.AnalysisSnapshotCreateOrConnectWithoutUserInput | Prisma.AnalysisSnapshotCreateOrConnectWithoutUserInput[]
+  createMany?: Prisma.AnalysisSnapshotCreateManyUserInputEnvelope
+  connect?: Prisma.AnalysisSnapshotWhereUniqueInput | Prisma.AnalysisSnapshotWhereUniqueInput[]
+}
+
+export type AnalysisSnapshotUncheckedCreateNestedManyWithoutUserInput = {
+  create?: Prisma.XOR<Prisma.AnalysisSnapshotCreateWithoutUserInput, Prisma.AnalysisSnapshotUncheckedCreateWithoutUserInput> | Prisma.AnalysisSnapshotCreateWithoutUserInput[] | Prisma.AnalysisSnapshotUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.AnalysisSnapshotCreateOrConnectWithoutUserInput | Prisma.AnalysisSnapshotCreateOrConnectWithoutUserInput[]
+  createMany?: Prisma.AnalysisSnapshotCreateManyUserInputEnvelope
+  connect?: Prisma.AnalysisSnapshotWhereUniqueInput | Prisma.AnalysisSnapshotWhereUniqueInput[]
+}
+
+export type AnalysisSnapshotUpdateManyWithoutUserNestedInput = {
+  create?: Prisma.XOR<Prisma.AnalysisSnapshotCreateWithoutUserInput, Prisma.AnalysisSnapshotUncheckedCreateWithoutUserInput> | Prisma.AnalysisSnapshotCreateWithoutUserInput[] | Prisma.AnalysisSnapshotUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.AnalysisSnapshotCreateOrConnectWithoutUserInput | Prisma.AnalysisSnapshotCreateOrConnectWithoutUserInput[]
+  upsert?: Prisma.AnalysisSnapshotUpsertWithWhereUniqueWithoutUserInput | Prisma.AnalysisSnapshotUpsertWithWhereUniqueWithoutUserInput[]
+  createMany?: Prisma.AnalysisSnapshotCreateManyUserInputEnvelope
+  set?: Prisma.AnalysisSnapshotWhereUniqueInput | Prisma.AnalysisSnapshotWhereUniqueInput[]
+  disconnect?: Prisma.AnalysisSnapshotWhereUniqueInput | Prisma.AnalysisSnapshotWhereUniqueInput[]
+  delete?: Prisma.AnalysisSnapshotWhereUniqueInput | Prisma.AnalysisSnapshotWhereUniqueInput[]
+  connect?: Prisma.AnalysisSnapshotWhereUniqueInput | Prisma.AnalysisSnapshotWhereUniqueInput[]
+  update?: Prisma.AnalysisSnapshotUpdateWithWhereUniqueWithoutUserInput | Prisma.AnalysisSnapshotUpdateWithWhereUniqueWithoutUserInput[]
+  updateMany?: Prisma.AnalysisSnapshotUpdateManyWithWhereWithoutUserInput | Prisma.AnalysisSnapshotUpdateManyWithWhereWithoutUserInput[]
+  deleteMany?: Prisma.AnalysisSnapshotScalarWhereInput | Prisma.AnalysisSnapshotScalarWhereInput[]
+}
+
+export type AnalysisSnapshotUncheckedUpdateManyWithoutUserNestedInput = {
+  create?: Prisma.XOR<Prisma.AnalysisSnapshotCreateWithoutUserInput, Prisma.AnalysisSnapshotUncheckedCreateWithoutUserInput> | Prisma.AnalysisSnapshotCreateWithoutUserInput[] | Prisma.AnalysisSnapshotUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.AnalysisSnapshotCreateOrConnectWithoutUserInput | Prisma.AnalysisSnapshotCreateOrConnectWithoutUserInput[]
+  upsert?: Prisma.AnalysisSnapshotUpsertWithWhereUniqueWithoutUserInput | Prisma.AnalysisSnapshotUpsertWithWhereUniqueWithoutUserInput[]
+  createMany?: Prisma.AnalysisSnapshotCreateManyUserInputEnvelope
+  set?: Prisma.AnalysisSnapshotWhereUniqueInput | Prisma.AnalysisSnapshotWhereUniqueInput[]
+  disconnect?: Prisma.AnalysisSnapshotWhereUniqueInput | Prisma.AnalysisSnapshotWhereUniqueInput[]
+  delete?: Prisma.AnalysisSnapshotWhereUniqueInput | Prisma.AnalysisSnapshotWhereUniqueInput[]
+  connect?: Prisma.AnalysisSnapshotWhereUniqueInput | Prisma.AnalysisSnapshotWhereUniqueInput[]
+  update?: Prisma.AnalysisSnapshotUpdateWithWhereUniqueWithoutUserInput | Prisma.AnalysisSnapshotUpdateWithWhereUniqueWithoutUserInput[]
+  updateMany?: Prisma.AnalysisSnapshotUpdateManyWithWhereWithoutUserInput | Prisma.AnalysisSnapshotUpdateManyWithWhereWithoutUserInput[]
+  deleteMany?: Prisma.AnalysisSnapshotScalarWhereInput | Prisma.AnalysisSnapshotScalarWhereInput[]
+}
+
 export type AnalysisSnapshotCreateWithoutRepositoryInput = {
   id?: string
   periodDays: number
@@ -902,10 +972,12 @@ export type AnalysisSnapshotCreateWithoutRepositoryInput = {
   activity: Prisma.JsonNullValueInput | runtime.InputJsonValue
   contributors: Prisma.JsonNullValueInput | runtime.InputJsonValue
   truncated?: boolean
+  user?: Prisma.UserCreateNestedOneWithoutAnalysesInput
 }
 
 export type AnalysisSnapshotUncheckedCreateWithoutRepositoryInput = {
   id?: string
+  userId?: string | null
   periodDays: number
   analyzedAt?: Date | string
   totalCommits: number
@@ -961,6 +1033,7 @@ export type AnalysisSnapshotScalarWhereInput = {
   NOT?: Prisma.AnalysisSnapshotScalarWhereInput | Prisma.AnalysisSnapshotScalarWhereInput[]
   id?: Prisma.StringFilter<"AnalysisSnapshot"> | string
   repositoryId?: Prisma.StringFilter<"AnalysisSnapshot"> | string
+  userId?: Prisma.StringNullableFilter<"AnalysisSnapshot"> | string | null
   periodDays?: Prisma.IntFilter<"AnalysisSnapshot"> | number
   analyzedAt?: Prisma.DateTimeFilter<"AnalysisSnapshot"> | Date | string
   totalCommits?: Prisma.IntFilter<"AnalysisSnapshot"> | number
@@ -984,8 +1057,87 @@ export type AnalysisSnapshotScalarWhereInput = {
   truncated?: Prisma.BoolFilter<"AnalysisSnapshot"> | boolean
 }
 
+export type AnalysisSnapshotCreateWithoutUserInput = {
+  id?: string
+  periodDays: number
+  analyzedAt?: Date | string
+  totalCommits: number
+  activeDays: number
+  averageCommitsPerActiveDay: number
+  busiestDayDate?: Date | string | null
+  busiestDayCommits?: number | null
+  stars: number
+  forks: number
+  watchers: number
+  openIssues: number
+  conventionalPercentage: number
+  breakingChanges: number
+  totalContributors: number
+  concentrationPercentage: number
+  concentrationRisk: string
+  languages: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  categories: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  activity: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  contributors: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  truncated?: boolean
+  repository: Prisma.RepositoryCreateNestedOneWithoutAnalysesInput
+}
+
+export type AnalysisSnapshotUncheckedCreateWithoutUserInput = {
+  id?: string
+  repositoryId: string
+  periodDays: number
+  analyzedAt?: Date | string
+  totalCommits: number
+  activeDays: number
+  averageCommitsPerActiveDay: number
+  busiestDayDate?: Date | string | null
+  busiestDayCommits?: number | null
+  stars: number
+  forks: number
+  watchers: number
+  openIssues: number
+  conventionalPercentage: number
+  breakingChanges: number
+  totalContributors: number
+  concentrationPercentage: number
+  concentrationRisk: string
+  languages: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  categories: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  activity: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  contributors: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  truncated?: boolean
+}
+
+export type AnalysisSnapshotCreateOrConnectWithoutUserInput = {
+  where: Prisma.AnalysisSnapshotWhereUniqueInput
+  create: Prisma.XOR<Prisma.AnalysisSnapshotCreateWithoutUserInput, Prisma.AnalysisSnapshotUncheckedCreateWithoutUserInput>
+}
+
+export type AnalysisSnapshotCreateManyUserInputEnvelope = {
+  data: Prisma.AnalysisSnapshotCreateManyUserInput | Prisma.AnalysisSnapshotCreateManyUserInput[]
+  skipDuplicates?: boolean
+}
+
+export type AnalysisSnapshotUpsertWithWhereUniqueWithoutUserInput = {
+  where: Prisma.AnalysisSnapshotWhereUniqueInput
+  update: Prisma.XOR<Prisma.AnalysisSnapshotUpdateWithoutUserInput, Prisma.AnalysisSnapshotUncheckedUpdateWithoutUserInput>
+  create: Prisma.XOR<Prisma.AnalysisSnapshotCreateWithoutUserInput, Prisma.AnalysisSnapshotUncheckedCreateWithoutUserInput>
+}
+
+export type AnalysisSnapshotUpdateWithWhereUniqueWithoutUserInput = {
+  where: Prisma.AnalysisSnapshotWhereUniqueInput
+  data: Prisma.XOR<Prisma.AnalysisSnapshotUpdateWithoutUserInput, Prisma.AnalysisSnapshotUncheckedUpdateWithoutUserInput>
+}
+
+export type AnalysisSnapshotUpdateManyWithWhereWithoutUserInput = {
+  where: Prisma.AnalysisSnapshotScalarWhereInput
+  data: Prisma.XOR<Prisma.AnalysisSnapshotUpdateManyMutationInput, Prisma.AnalysisSnapshotUncheckedUpdateManyWithoutUserInput>
+}
+
 export type AnalysisSnapshotCreateManyRepositoryInput = {
   id?: string
+  userId?: string | null
   periodDays: number
   analyzedAt?: Date | string
   totalCommits: number
@@ -1032,10 +1184,12 @@ export type AnalysisSnapshotUpdateWithoutRepositoryInput = {
   activity?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   contributors?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   truncated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  user?: Prisma.UserUpdateOneWithoutAnalysesNestedInput
 }
 
 export type AnalysisSnapshotUncheckedUpdateWithoutRepositoryInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   periodDays?: Prisma.IntFieldUpdateOperationsInput | number
   analyzedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   totalCommits?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1061,6 +1215,111 @@ export type AnalysisSnapshotUncheckedUpdateWithoutRepositoryInput = {
 
 export type AnalysisSnapshotUncheckedUpdateManyWithoutRepositoryInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  periodDays?: Prisma.IntFieldUpdateOperationsInput | number
+  analyzedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  totalCommits?: Prisma.IntFieldUpdateOperationsInput | number
+  activeDays?: Prisma.IntFieldUpdateOperationsInput | number
+  averageCommitsPerActiveDay?: Prisma.FloatFieldUpdateOperationsInput | number
+  busiestDayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  busiestDayCommits?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  stars?: Prisma.IntFieldUpdateOperationsInput | number
+  forks?: Prisma.IntFieldUpdateOperationsInput | number
+  watchers?: Prisma.IntFieldUpdateOperationsInput | number
+  openIssues?: Prisma.IntFieldUpdateOperationsInput | number
+  conventionalPercentage?: Prisma.FloatFieldUpdateOperationsInput | number
+  breakingChanges?: Prisma.IntFieldUpdateOperationsInput | number
+  totalContributors?: Prisma.IntFieldUpdateOperationsInput | number
+  concentrationPercentage?: Prisma.FloatFieldUpdateOperationsInput | number
+  concentrationRisk?: Prisma.StringFieldUpdateOperationsInput | string
+  languages?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  categories?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  activity?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  contributors?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  truncated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+}
+
+export type AnalysisSnapshotCreateManyUserInput = {
+  id?: string
+  repositoryId: string
+  periodDays: number
+  analyzedAt?: Date | string
+  totalCommits: number
+  activeDays: number
+  averageCommitsPerActiveDay: number
+  busiestDayDate?: Date | string | null
+  busiestDayCommits?: number | null
+  stars: number
+  forks: number
+  watchers: number
+  openIssues: number
+  conventionalPercentage: number
+  breakingChanges: number
+  totalContributors: number
+  concentrationPercentage: number
+  concentrationRisk: string
+  languages: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  categories: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  activity: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  contributors: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  truncated?: boolean
+}
+
+export type AnalysisSnapshotUpdateWithoutUserInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  periodDays?: Prisma.IntFieldUpdateOperationsInput | number
+  analyzedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  totalCommits?: Prisma.IntFieldUpdateOperationsInput | number
+  activeDays?: Prisma.IntFieldUpdateOperationsInput | number
+  averageCommitsPerActiveDay?: Prisma.FloatFieldUpdateOperationsInput | number
+  busiestDayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  busiestDayCommits?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  stars?: Prisma.IntFieldUpdateOperationsInput | number
+  forks?: Prisma.IntFieldUpdateOperationsInput | number
+  watchers?: Prisma.IntFieldUpdateOperationsInput | number
+  openIssues?: Prisma.IntFieldUpdateOperationsInput | number
+  conventionalPercentage?: Prisma.FloatFieldUpdateOperationsInput | number
+  breakingChanges?: Prisma.IntFieldUpdateOperationsInput | number
+  totalContributors?: Prisma.IntFieldUpdateOperationsInput | number
+  concentrationPercentage?: Prisma.FloatFieldUpdateOperationsInput | number
+  concentrationRisk?: Prisma.StringFieldUpdateOperationsInput | string
+  languages?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  categories?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  activity?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  contributors?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  truncated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  repository?: Prisma.RepositoryUpdateOneRequiredWithoutAnalysesNestedInput
+}
+
+export type AnalysisSnapshotUncheckedUpdateWithoutUserInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  repositoryId?: Prisma.StringFieldUpdateOperationsInput | string
+  periodDays?: Prisma.IntFieldUpdateOperationsInput | number
+  analyzedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  totalCommits?: Prisma.IntFieldUpdateOperationsInput | number
+  activeDays?: Prisma.IntFieldUpdateOperationsInput | number
+  averageCommitsPerActiveDay?: Prisma.FloatFieldUpdateOperationsInput | number
+  busiestDayDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  busiestDayCommits?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  stars?: Prisma.IntFieldUpdateOperationsInput | number
+  forks?: Prisma.IntFieldUpdateOperationsInput | number
+  watchers?: Prisma.IntFieldUpdateOperationsInput | number
+  openIssues?: Prisma.IntFieldUpdateOperationsInput | number
+  conventionalPercentage?: Prisma.FloatFieldUpdateOperationsInput | number
+  breakingChanges?: Prisma.IntFieldUpdateOperationsInput | number
+  totalContributors?: Prisma.IntFieldUpdateOperationsInput | number
+  concentrationPercentage?: Prisma.FloatFieldUpdateOperationsInput | number
+  concentrationRisk?: Prisma.StringFieldUpdateOperationsInput | string
+  languages?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  categories?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  activity?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  contributors?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  truncated?: Prisma.BoolFieldUpdateOperationsInput | boolean
+}
+
+export type AnalysisSnapshotUncheckedUpdateManyWithoutUserInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  repositoryId?: Prisma.StringFieldUpdateOperationsInput | string
   periodDays?: Prisma.IntFieldUpdateOperationsInput | number
   analyzedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   totalCommits?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1089,6 +1348,7 @@ export type AnalysisSnapshotUncheckedUpdateManyWithoutRepositoryInput = {
 export type AnalysisSnapshotSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   repositoryId?: boolean
+  userId?: boolean
   periodDays?: boolean
   analyzedAt?: boolean
   totalCommits?: boolean
@@ -1111,11 +1371,13 @@ export type AnalysisSnapshotSelect<ExtArgs extends runtime.Types.Extensions.Inte
   contributors?: boolean
   truncated?: boolean
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
+  user?: boolean | Prisma.AnalysisSnapshot$userArgs<ExtArgs>
 }, ExtArgs["result"]["analysisSnapshot"]>
 
 export type AnalysisSnapshotSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   repositoryId?: boolean
+  userId?: boolean
   periodDays?: boolean
   analyzedAt?: boolean
   totalCommits?: boolean
@@ -1138,11 +1400,13 @@ export type AnalysisSnapshotSelectCreateManyAndReturn<ExtArgs extends runtime.Ty
   contributors?: boolean
   truncated?: boolean
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
+  user?: boolean | Prisma.AnalysisSnapshot$userArgs<ExtArgs>
 }, ExtArgs["result"]["analysisSnapshot"]>
 
 export type AnalysisSnapshotSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   repositoryId?: boolean
+  userId?: boolean
   periodDays?: boolean
   analyzedAt?: boolean
   totalCommits?: boolean
@@ -1165,11 +1429,13 @@ export type AnalysisSnapshotSelectUpdateManyAndReturn<ExtArgs extends runtime.Ty
   contributors?: boolean
   truncated?: boolean
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
+  user?: boolean | Prisma.AnalysisSnapshot$userArgs<ExtArgs>
 }, ExtArgs["result"]["analysisSnapshot"]>
 
 export type AnalysisSnapshotSelectScalar = {
   id?: boolean
   repositoryId?: boolean
+  userId?: boolean
   periodDays?: boolean
   analyzedAt?: boolean
   totalCommits?: boolean
@@ -1193,25 +1459,30 @@ export type AnalysisSnapshotSelectScalar = {
   truncated?: boolean
 }
 
-export type AnalysisSnapshotOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "repositoryId" | "periodDays" | "analyzedAt" | "totalCommits" | "activeDays" | "averageCommitsPerActiveDay" | "busiestDayDate" | "busiestDayCommits" | "stars" | "forks" | "watchers" | "openIssues" | "conventionalPercentage" | "breakingChanges" | "totalContributors" | "concentrationPercentage" | "concentrationRisk" | "languages" | "categories" | "activity" | "contributors" | "truncated", ExtArgs["result"]["analysisSnapshot"]>
+export type AnalysisSnapshotOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "repositoryId" | "userId" | "periodDays" | "analyzedAt" | "totalCommits" | "activeDays" | "averageCommitsPerActiveDay" | "busiestDayDate" | "busiestDayCommits" | "stars" | "forks" | "watchers" | "openIssues" | "conventionalPercentage" | "breakingChanges" | "totalContributors" | "concentrationPercentage" | "concentrationRisk" | "languages" | "categories" | "activity" | "contributors" | "truncated", ExtArgs["result"]["analysisSnapshot"]>
 export type AnalysisSnapshotInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
+  user?: boolean | Prisma.AnalysisSnapshot$userArgs<ExtArgs>
 }
 export type AnalysisSnapshotIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
+  user?: boolean | Prisma.AnalysisSnapshot$userArgs<ExtArgs>
 }
 export type AnalysisSnapshotIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   repository?: boolean | Prisma.RepositoryDefaultArgs<ExtArgs>
+  user?: boolean | Prisma.AnalysisSnapshot$userArgs<ExtArgs>
 }
 
 export type $AnalysisSnapshotPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "AnalysisSnapshot"
   objects: {
     repository: Prisma.$RepositoryPayload<ExtArgs>
+    user: Prisma.$UserPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     repositoryId: string
+    userId: string | null
     periodDays: number
     analyzedAt: Date
     totalCommits: number
@@ -1628,6 +1899,7 @@ readonly fields: AnalysisSnapshotFieldRefs;
 export interface Prisma__AnalysisSnapshotClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   repository<T extends Prisma.RepositoryDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.RepositoryDefaultArgs<ExtArgs>>): Prisma.Prisma__RepositoryClient<runtime.Types.Result.GetResult<Prisma.$RepositoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  user<T extends Prisma.AnalysisSnapshot$userArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AnalysisSnapshot$userArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1659,6 +1931,7 @@ export interface Prisma__AnalysisSnapshotClient<T, Null = never, ExtArgs extends
 export interface AnalysisSnapshotFieldRefs {
   readonly id: Prisma.FieldRef<"AnalysisSnapshot", 'String'>
   readonly repositoryId: Prisma.FieldRef<"AnalysisSnapshot", 'String'>
+  readonly userId: Prisma.FieldRef<"AnalysisSnapshot", 'String'>
   readonly periodDays: Prisma.FieldRef<"AnalysisSnapshot", 'Int'>
   readonly analyzedAt: Prisma.FieldRef<"AnalysisSnapshot", 'DateTime'>
   readonly totalCommits: Prisma.FieldRef<"AnalysisSnapshot", 'Int'>
@@ -2078,6 +2351,25 @@ export type AnalysisSnapshotDeleteManyArgs<ExtArgs extends runtime.Types.Extensi
    * Limit how many AnalysisSnapshots to delete.
    */
   limit?: number
+}
+
+/**
+ * AnalysisSnapshot.user
+ */
+export type AnalysisSnapshot$userArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the User
+   */
+  select?: Prisma.UserSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the User
+   */
+  omit?: Prisma.UserOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserInclude<ExtArgs> | null
+  where?: Prisma.UserWhereInput
 }
 
 /**
