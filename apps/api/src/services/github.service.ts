@@ -25,25 +25,29 @@ const COMMITS_PER_PAGE = 100;
 export class GitHubService {
     private readonly healthScoreService = new HealthScoreService();
 
-    private getHeaders(): HeadersInit {
+    private getHeaders(accessToken?: string): HeadersInit {
         const headers: Record<string, string> = {
             Accept: "application/vnd.github+json",
+
             "X-GitHub-Api-Version": "2026-03-10",
+
             "User-Agent": "DevPulse",
         };
 
-        const token = process.env.GITHUB_API_TOKEN?.trim();
-
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
+        if (accessToken) {
+            headers.Authorization = `Bearer ${accessToken}`;
         }
 
         return headers;
     }
 
-    async getRepository(owner: string, repo: string): Promise<RepositoryAnalysis> {
+    async getRepository(
+        owner: string,
+        repo: string,
+        accessToken?: string
+    ): Promise<RepositoryAnalysis> {
         const response = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}`, {
-            headers: this.getHeaders(),
+            headers: this.getHeaders(accessToken),
         });
 
         this.handleResponseErrors(response);
@@ -95,7 +99,8 @@ export class GitHubService {
     async getRepositoryAnalytics(
         owner: string,
         repo: string,
-        days = 30
+        days = 30,
+        accessToken?: string
     ): Promise<RepositoryAnalytics> {
         const until = new Date();
 
@@ -105,9 +110,9 @@ export class GitHubService {
         since.setUTCHours(0, 0, 0, 0);
 
         const [commitResult, languages] = await Promise.all([
-            this.getCommits(owner, repo, since, until),
+            this.getCommits(owner, repo, since, until, accessToken),
 
-            this.getLanguages(owner, repo),
+            this.getLanguages(owner, repo, accessToken),
         ]);
 
         const activity = this.buildDailyActivity(commitResult.commits, since, days);
@@ -169,7 +174,8 @@ export class GitHubService {
         owner: string,
         repo: string,
         since: Date,
-        until: Date
+        until: Date,
+        accessToken?: string
     ): Promise<{
         commits: GitHubCommit[];
         truncated: boolean;
@@ -189,7 +195,7 @@ export class GitHubService {
             const response = await fetch(
                 `${GITHUB_API_URL}/repos/${owner}/${repo}/commits?${params.toString()}`,
                 {
-                    headers: this.getHeaders(),
+                    headers: this.getHeaders(accessToken),
                 }
             );
 
@@ -226,9 +232,13 @@ export class GitHubService {
         };
     }
 
-    private async getLanguages(owner: string, repo: string): Promise<LanguageUsage[]> {
+    private async getLanguages(
+        owner: string,
+        repo: string,
+        accessToken?: string
+    ): Promise<LanguageUsage[]> {
         const response = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/languages`, {
-            headers: this.getHeaders(),
+            headers: this.getHeaders(accessToken),
         });
 
         this.handleResponseErrors(response);

@@ -10,7 +10,11 @@ export class PersistenceService {
         return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
     }
 
-    async saveAnalysis(repository: RepositoryAnalysis, analytics: RepositoryAnalytics) {
+    async saveAnalysis(
+        repository: RepositoryAnalysis,
+        analytics: RepositoryAnalytics,
+        userId: string
+    ) {
         /*
          * Primeiro garantimos que o
          * repositório exista no banco.
@@ -51,6 +55,8 @@ export class PersistenceService {
         const snapshot = await prisma.analysisSnapshot.create({
             data: {
                 repositoryId: storedRepository.id,
+
+                userId,
 
                 periodDays: analytics.period.days,
 
@@ -129,7 +135,7 @@ export class PersistenceService {
         };
     }
 
-    async getHistory(owner: string, repo: string, days?: number) {
+    async getHistory(owner: string, repo: string, userId: string, days?: number) {
         const fullName = `${owner}/${repo}`;
 
         const repository = await prisma.repository.findFirst({
@@ -151,6 +157,8 @@ export class PersistenceService {
         const snapshots = await prisma.analysisSnapshot.findMany({
             where: {
                 repositoryId: repository.id,
+
+                userId,
 
                 ...(days
                     ? {

@@ -1,6 +1,9 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import { AuthContextService } from "../services/auth-context.service.js";
 import { GitHubService } from "../services/github.service.js";
+
+const authContextService = new AuthContextService();
 
 interface RepositoryParams {
     owner: string;
@@ -19,7 +22,9 @@ export class RepositoryController {
         const { owner, repo } = request.params;
 
         try {
-            const repository = await githubService.getRepository(owner, repo);
+            const auth = await authContextService.resolveGitHubContext(request);
+
+            const repository = await githubService.getRepository(owner, repo, auth?.accessToken);
 
             return reply.send(repository);
         } catch (error) {

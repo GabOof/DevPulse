@@ -1,6 +1,9 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import { AuthContextService } from "../services/auth-context.service.js";
 import { GitHubService } from "../services/github.service.js";
+
+const authContextService = new AuthContextService();
 
 interface AnalyticsParams {
     owner: string;
@@ -36,7 +39,14 @@ export class AnalyticsController {
         }
 
         try {
-            const analytics = await githubService.getRepositoryAnalytics(owner, repo, days);
+            const auth = await authContextService.resolveGitHubContext(request);
+
+            const analytics = await githubService.getRepositoryAnalytics(
+                owner,
+                repo,
+                days,
+                auth?.accessToken
+            );
 
             return reply.send(analytics);
         } catch (error) {

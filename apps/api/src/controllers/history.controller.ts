@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import { AuthContextService } from "../services/auth-context.service.js";
 import { GitHubService } from "../services/github.service.js";
-
 import { PersistenceService } from "../services/persistence.service.js";
 
 interface RepositoryParams {
@@ -14,7 +14,7 @@ interface AnalysisQuery {
 }
 
 const githubService = new GitHubService();
-
+const authContextService = new AuthContextService();
 const persistenceService = new PersistenceService();
 
 const allowedPeriods = [7, 30, 90];
@@ -40,6 +40,7 @@ export class HistoryController {
         }
 
         try {
+            const auth = await authContextService.requireGitHubContext(request);
             /*
              * Overview e Analytics são
              * independentes.
@@ -48,12 +49,16 @@ export class HistoryController {
              * concorrentemente.
              */
             const [repository, analytics] = await Promise.all([
-                githubService.getRepository(owner, repo),
+                githubService.getRepository(owner, repo, auth.accessToken),
 
-                githubService.getRepositoryAnalytics(owner, repo, days),
+                githubService.getRepositoryAnalytics(owner, repo, days, auth.accessToken),
             ]);
 
-            const snapshot = await persistenceService.saveAnalysis(repository, analytics);
+            const snapshot = await persistenceService.saveAnalysis(
+                repository,
+                analytics,
+                auth.userId
+            );
 
             return reply.status(201).send({
                 message: "Análise armazenada com sucesso.",
@@ -61,6 +66,14 @@ export class HistoryController {
                 snapshot,
             });
         } catch (error) {
+            if (error instanceof Error && error.message === "AUTH_REQUIRED") {
+                return reply.status(401).send({
+                    error: "Authentication required",
+
+                    message: "Entre com GitHub para acessar seu histórico.",
+                });
+            }
+
             if (error instanceof Error) {
                 if (error.message === "REPOSITORY_NOT_FOUND") {
                     return reply.status(404).send({
@@ -113,7 +126,8 @@ export class HistoryController {
         }
 
         try {
-            const history = await persistenceService.getHistory(owner, repo, days);
+            const user = await authContextService.requireUser(request);
+            const history = await persistenceService.getHistory(owner, repo, user.id, days);
 
             return reply.send(history);
         } catch (error) {
