@@ -1,50 +1,28 @@
-import cookie from "@fastify/cookie";
-import cors from "@fastify/cors";
 import "dotenv/config";
-import Fastify from "fastify";
 
-import { authRoutes } from "./routes/auth.routes.js";
-import { repositoryRoutes } from "./routes/repository.routes.js";
+import { buildApp } from "./app.js";
 
-const app = Fastify({
-    logger: true,
-});
+const PORT = Number(process.env.PORT ?? 3333);
 
-await app.register(cookie);
+const HOST = process.env.HOST ?? "0.0.0.0";
 
-await app.register(cors, {
-    origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
+async function start() {
+    const app = await buildApp({
+        logger: true,
+    });
 
-    credentials: true,
-});
-
-app.get("/health", async () => {
-    return {
-        status: "ok",
-        service: "devpulse-api",
-    };
-});
-
-await app.register(authRoutes, {
-    prefix: "/api/auth",
-});
-
-await app.register(repositoryRoutes, {
-    prefix: "/api",
-});
-
-const start = async () => {
     try {
         await app.listen({
-            port: 3333,
-            host: "0.0.0.0",
+            port: PORT,
+            host: HOST,
         });
 
-        console.log("DevPulse API rodando em http://localhost:3333");
+        app.log.info(`DevPulse API running on port ${PORT}`);
     } catch (error) {
         app.log.error(error);
+
         process.exit(1);
     }
-};
+}
 
-start();
+void start();
