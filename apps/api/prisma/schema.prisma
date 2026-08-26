@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Repository {
+  id String @id @default(cuid())
+
+  githubId BigInt @unique
+
+  owner    String
+  name     String
+  fullName String @unique
+
+  repositoryUrl String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  analyses AnalysisSnapshot[]
+
+  @@index([owner])
+}
+
+model AnalysisSnapshot {
+  id String @id @default(cuid())
+
+  repositoryId String
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  periodDays Int
+
+  analyzedAt DateTime @default(now())
+
+  totalCommits Int
+  activeDays   Int
+
+  averageCommitsPerActiveDay Float
+
+  busiestDayDate    DateTime?
+  busiestDayCommits Int?
+
+  stars      Int
+  forks      Int
+  watchers   Int
+  openIssues Int
+
+  conventionalPercentage Float
+  breakingChanges        Int
+
+  totalContributors       Int
+  concentrationPercentage Float
+  concentrationRisk       String
+
+  languages    Json
+  categories   Json
+  activity     Json
+  contributors Json
+
+  truncated Boolean @default(false)
+
+  @@index([repositoryId])
+  @@index([repositoryId, periodDays])
+  @@index([repositoryId, analyzedAt])
+}
