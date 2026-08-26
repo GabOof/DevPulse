@@ -1,0 +1,83 @@
+# =========================
+# DEPENDÊNCIAS
+# =========================
+
+node_modules/
+
+# =========================
+# BUILDS
+# =========================
+
+dist/
+build/
+
+apps/api/dist/
+apps/web/dist/
+
+# =========================
+# VARIÁVEIS DE AMBIENTE
+# =========================
+
+.env
+.env.*
+!.env.example
+
+apps/api/.env
+apps/web/.env
+
+!apps/api/.env.example
+!apps/web/.env.example
+
+# =========================
+# PRISMA
+# =========================
+
+# Prisma Client gerado automaticamente
+apps/api/src/generated/prisma/
+
+# =========================
+# TESTES / COVERAGE
+# =========================
+
+coverage/
+
+# =========================
+# LOGS
+# =========================
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# EDITORES / IDE
+# =========================
+
+.vscode/
+.idea/
+
+*.swp
+*.swo
+
+# =========================
+# SISTEMA OPERACIONAL
+# =========================
+
+.DS_Store
+Thumbs.db
+
+# =========================
+# TEMPORÁRIOS
+# =========================
+
+tmp/
+temp/
+.cache/
+
+# =========================
+# TYPESCRIPT
+# =========================
+
+*.tsbuildinfo
