@@ -1,6 +1,11 @@
 import type { Repository } from "../types/repository";
 
-import type { AnalyticsPeriod, RepositoryAnalytics } from "../types/analytics";
+import type {
+    AnalyticsPeriod,
+    RepositoryAnalytics,
+    RepositoryHistory,
+    SavedAnalysisResponse,
+} from "../types/analytics";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
 
@@ -45,4 +50,31 @@ export async function getRepositoryAnalytics(
     );
 
     return handleResponse<RepositoryAnalytics>(response);
+}
+
+export async function saveRepositoryAnalysis(
+    owner: string,
+    repo: string,
+    days: AnalyticsPeriod
+): Promise<SavedAnalysisResponse> {
+    const response = await fetch(
+        `${API_URL}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/analyze?days=${days}`,
+        {
+            method: "POST",
+        }
+    );
+
+    return handleResponse<SavedAnalysisResponse>(response);
+}
+
+export async function getRepositoryHistory(
+    owner: string,
+    repo: string,
+    days: AnalyticsPeriod
+): Promise<RepositoryHistory> {
+    const response = await fetch(
+        `${API_URL}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/history?days=${days}`
+    );
+
+    return handleResponse<RepositoryHistory>(response);
 }
