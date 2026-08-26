@@ -270,8 +270,9 @@ describe("GitHub API Integration", () => {
 
     describe("GET /api/repositories/:owner/:repo", () => {
         it("deve retornar dados do repositório", async () => {
-            const fetchMock = vi.fn(async () => jsonResponse(createGitHubRepository()));
-
+            const fetchMock = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
+                jsonResponse(createGitHubRepository())
+            );
             vi.stubGlobal("fetch", fetchMock);
 
             const response = await app.inject({
@@ -328,7 +329,9 @@ describe("GitHub API Integration", () => {
         });
 
         it("deve solicitar o repositório correto ao GitHub", async () => {
-            const fetchMock = vi.fn(async () => jsonResponse(createGitHubRepository()));
+            const fetchMock = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
+                jsonResponse(createGitHubRepository())
+            );
 
             vi.stubGlobal("fetch", fetchMock);
 
@@ -346,7 +349,9 @@ describe("GitHub API Integration", () => {
         });
 
         it("deve enviar os headers esperados para o GitHub", async () => {
-            const fetchMock = vi.fn(async () => jsonResponse(createGitHubRepository()));
+            const fetchMock = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
+                jsonResponse(createGitHubRepository())
+            );
 
             vi.stubGlobal("fetch", fetchMock);
 
@@ -368,7 +373,9 @@ describe("GitHub API Integration", () => {
         });
 
         it("não deve enviar Authorization em requisição anônima", async () => {
-            const fetchMock = vi.fn(async () => jsonResponse(createGitHubRepository()));
+            const fetchMock = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) =>
+                jsonResponse(createGitHubRepository())
+            );
 
             vi.stubGlobal("fetch", fetchMock);
 
