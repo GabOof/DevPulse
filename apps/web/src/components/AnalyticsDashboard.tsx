@@ -4,6 +4,7 @@ import { AnalyticsSummary } from "./AnalyticsSummary";
 import { CommitActivityChart } from "./CommitActivityChart";
 import { LanguageDistribution } from "./LanguageDistribution";
 
+import { CollaborationPanel } from "./CollaborationPanel";
 import { CommitIntelligencePanel } from "./CommitIntelligencePanel";
 
 interface AnalyticsDashboardProps {
@@ -65,6 +66,8 @@ export function AnalyticsDashboard({
             </div>
 
             <CommitIntelligencePanel intelligence={analytics.commitIntelligence} />
+
+            <CollaborationPanel collaboration={analytics.collaboration} />
         </section>
     );
 }
