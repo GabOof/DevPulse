@@ -1,4 +1,14 @@
-:root {
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-width: 320px;
+
+    background: #080c12;
+
+    color-scheme: dark;
+
     font-family:
         Inter,
         ui-sans-serif,
@@ -8,33 +18,58 @@
         "Segoe UI",
         sans-serif;
 
-    color: #c9d1d9;
-    background: #010409;
-
     font-synthesis: none;
     text-rendering: optimizeLegibility;
+
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-    box-sizing: border-box;
-}
-
-html {
-    background: #010409;
-}
-
 body {
-    margin: 0;
-
     min-width: 320px;
     min-height: 100vh;
 
-    background: radial-gradient(circle at 50% -20%, #172033 0%, #010409 42%);
+    margin: 0;
+
+    background: #080c12;
+    color: #f0f4f8;
 }
 
 button,
 input {
-    font-family: inherit;
+    font: inherit;
+}
+
+button {
+    -webkit-tap-highlight-color: transparent;
+}
+
+a {
+    color: inherit;
+}
+
+::selection {
+    background: rgb(91 140 255 / 28%);
+
+    color: #ffffff;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #080c12;
+}
+
+::-webkit-scrollbar-thumb {
+    border: 2px solid #080c12;
+    border-radius: 999px;
+
+    background: #293546;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #38475c;
 }
