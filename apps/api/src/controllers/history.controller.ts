@@ -113,6 +113,12 @@ export class HistoryController {
 
         let days: number | undefined;
 
+        /*
+         * ==========================
+         * VALIDAR PERÍODO
+         * ==========================
+         */
+
         if (request.query.days !== undefined) {
             days = Number(request.query.days);
 
@@ -126,11 +132,50 @@ export class HistoryController {
         }
 
         try {
+            /*
+             * ==========================
+             * AUTENTICAÇÃO
+             * ==========================
+             *
+             * Histórico é privado.
+             *
+             * Portanto precisamos saber
+             * qual usuário está solicitando
+             * os snapshots.
+             */
+
             const user = await authContextService.requireUser(request);
+
+            /*
+             * ==========================
+             * CONSULTAR HISTÓRICO
+             * ==========================
+             */
+
             const history = await persistenceService.getHistory(owner, repo, user.id, days);
 
             return reply.send(history);
         } catch (error) {
+            /*
+             * ==========================
+             * USUÁRIO NÃO AUTENTICADO
+             * ==========================
+             */
+
+            if (error instanceof Error && error.message === "AUTH_REQUIRED") {
+                return reply.status(401).send({
+                    error: "Authentication required",
+
+                    message: "Entre com GitHub para acessar seu histórico.",
+                });
+            }
+
+            /*
+             * ==========================
+             * ERRO INTERNO
+             * ==========================
+             */
+
             request.log.error(error);
 
             return reply.status(500).send({
