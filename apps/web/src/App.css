@@ -1552,3 +1552,277 @@ main {
         gap: 10px;
     }
 }
+
+.analytics-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.save-snapshot-button {
+    min-height: 38px;
+
+    padding: 0 15px;
+
+    border: 1px solid #2ea043;
+    border-radius: 8px;
+
+    background: #238636;
+    color: #fff;
+
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s,
+        opacity 0.2s;
+}
+
+.save-snapshot-button:hover {
+    background: #2ea043;
+}
+
+.save-snapshot-button:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
+
+.snapshot-message {
+    margin: -10px 0 22px;
+
+    padding: 12px 15px;
+
+    border: 1px solid #23863660;
+    border-radius: 8px;
+
+    background: #2386360c;
+    color: #3fb950;
+
+    font-size: 0.78rem;
+}
+
+.project-evolution {
+    margin-top: 55px;
+}
+
+.evolution-header {
+    display: flex;
+
+    justify-content: space-between;
+    align-items: flex-end;
+
+    gap: 30px;
+
+    margin-bottom: 25px;
+}
+
+.evolution-header h2 {
+    margin: 5px 0 7px;
+
+    color: #f0f6fc;
+
+    font-size: 1.8rem;
+    letter-spacing: -0.025em;
+}
+
+.evolution-header p {
+    margin: 0;
+
+    color: #8b949e;
+
+    font-size: 0.9rem;
+}
+
+.snapshot-counter {
+    min-width: 110px;
+
+    padding: 13px 17px;
+
+    display: flex;
+    flex-direction: column;
+
+    border: 1px solid #21262d;
+    border-radius: 9px;
+
+    background: #0d1117;
+}
+
+.snapshot-counter span {
+    color: #6e7681;
+
+    font-size: 0.65rem;
+    font-weight: 600;
+
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.snapshot-counter strong {
+    margin-top: 4px;
+
+    color: #f0f6fc;
+
+    font-size: 1.35rem;
+}
+
+.evolution-empty {
+    padding: 35px;
+
+    border: 1px dashed #30363d;
+    border-radius: 12px;
+
+    background: #0d111780;
+
+    text-align: center;
+
+    color: #6e7681;
+}
+
+.evolution-empty strong {
+    display: block;
+
+    margin-bottom: 6px;
+
+    color: #c9d1d9;
+}
+
+.evolution-empty p {
+    margin: 0;
+
+    font-size: 0.82rem;
+}
+
+.evolution-summary {
+    display: grid;
+
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+
+    margin-bottom: 20px;
+
+    overflow: hidden;
+
+    border: 1px solid #21262d;
+    border-radius: 12px;
+
+    background: #0d1117;
+}
+
+.evolution-summary article {
+    min-width: 0;
+
+    padding: 20px;
+
+    display: flex;
+    flex-direction: column;
+
+    border-right: 1px solid #21262d;
+}
+
+.evolution-summary article:last-child {
+    border-right: 0;
+}
+
+.evolution-summary span {
+    margin-bottom: 7px;
+
+    color: #6e7681;
+
+    font-size: 0.68rem;
+    font-weight: 600;
+
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.evolution-summary strong {
+    overflow: hidden;
+
+    color: #f0f6fc;
+
+    font-size: 1rem;
+
+    text-overflow: ellipsis;
+}
+
+.evolution-notice {
+    margin-bottom: 20px;
+
+    padding: 13px 16px;
+
+    border: 1px solid #58a6ff40;
+    border-radius: 8px;
+
+    background: #58a6ff0a;
+    color: #8b949e;
+
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+
+.evolution-charts {
+    display: grid;
+
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 20px;
+}
+
+.evolution-chart-container {
+    width: 100%;
+    height: 260px;
+}
+
+.evolution-charts .analytics-panel:last-child {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 850px) {
+    .analytics-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .save-snapshot-button {
+        min-height: 40px;
+    }
+
+    .evolution-charts {
+        grid-template-columns: 1fr;
+    }
+
+    .evolution-charts .analytics-panel:last-child {
+        grid-column: auto;
+    }
+
+    .evolution-summary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .evolution-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .snapshot-counter {
+        width: 100%;
+    }
+
+    .evolution-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .evolution-summary article {
+        border-right: 0;
+
+        border-bottom: 1px solid #21262d;
+    }
+
+    .evolution-summary article:last-child {
+        border-bottom: 0;
+    }
+}

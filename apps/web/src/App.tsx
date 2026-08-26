@@ -6,9 +6,14 @@ import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
 import { RepositoryCard } from "./components/RepositoryCard";
 import { SearchRepositoryForm } from "./components/SearchRepositoryForm";
 
-import { getRepository, getRepositoryAnalytics } from "./services/api";
+import {
+    getRepository,
+    getRepositoryAnalytics,
+    getRepositoryHistory,
+    saveRepositoryAnalysis,
+} from "./services/api";
 
-import type { AnalyticsPeriod, RepositoryAnalytics } from "./types/analytics";
+import type { AnalysisHistoryItem, AnalyticsPeriod, RepositoryAnalytics } from "./types/analytics";
 
 import type { Repository } from "./types/repository";
 
@@ -32,8 +37,18 @@ function App() {
 
     const [error, setError] = useState<string | null>(null);
 
+    const [history, setHistory] = useState<AnalysisHistoryItem[]>([]);
+
+    const [historyLoading, setHistoryLoading] = useState(false);
+
+    const [snapshotSaving, setSnapshotSaving] = useState(false);
+
+    const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
+
     async function handleSearch(owner: string, repo: string) {
         try {
+            setSnapshotMessage(null);
+            setHistory([]);
             setLoading(true);
 
             setError(null);
@@ -42,14 +57,19 @@ function App() {
 
             const initialPeriod: AnalyticsPeriod = 30;
 
-            const [repositoryData, analyticsData] = await Promise.all([
+            const [repositoryData, analyticsData, historyData] = await Promise.all([
                 getRepository(owner, repo),
 
                 getRepositoryAnalytics(owner, repo, initialPeriod),
+
+                getRepositoryHistory(owner, repo, initialPeriod),
             ]);
 
             setRepository(repositoryData);
+
             setAnalytics(analyticsData);
+
+            setHistory(historyData.history);
 
             setSelectedRepository({
                 owner,
@@ -77,13 +97,23 @@ function App() {
             setAnalyticsLoading(true);
             setError(null);
 
-            const analyticsData = await getRepositoryAnalytics(
-                selectedRepository.owner,
-                selectedRepository.repo,
-                newPeriod
-            );
+            setHistoryLoading(true);
+            setSnapshotMessage(null);
+
+            const [analyticsData, historyData] = await Promise.all([
+                getRepositoryAnalytics(
+                    selectedRepository.owner,
+                    selectedRepository.repo,
+                    newPeriod
+                ),
+
+                getRepositoryHistory(selectedRepository.owner, selectedRepository.repo, newPeriod),
+            ]);
 
             setAnalytics(analyticsData);
+
+            setHistory(historyData.history);
+
             setPeriod(newPeriod);
         } catch (error) {
             if (error instanceof Error) {
@@ -93,6 +123,39 @@ function App() {
             }
         } finally {
             setAnalyticsLoading(false);
+            setHistoryLoading(false);
+        }
+    }
+
+    async function handleSaveSnapshot() {
+        if (!selectedRepository) {
+            return;
+        }
+
+        try {
+            setSnapshotSaving(true);
+            setSnapshotMessage(null);
+            setError(null);
+
+            await saveRepositoryAnalysis(selectedRepository.owner, selectedRepository.repo, period);
+
+            const historyData = await getRepositoryHistory(
+                selectedRepository.owner,
+                selectedRepository.repo,
+                period
+            );
+
+            setHistory(historyData.history);
+
+            setSnapshotMessage("Snapshot armazenado com sucesso.");
+        } catch (error) {
+            if (error instanceof Error) {
+                setError(error.message);
+            } else {
+                setError("Não foi possível salvar o snapshot.");
+            }
+        } finally {
+            setSnapshotSaving(false);
         }
     }
 
@@ -145,7 +208,12 @@ function App() {
                         analytics={analytics}
                         period={period}
                         loading={analyticsLoading}
+                        historyLoading={historyLoading}
+                        snapshotSaving={snapshotSaving}
+                        history={history}
+                        snapshotMessage={snapshotMessage}
                         onPeriodChange={handlePeriodChange}
+                        onSaveSnapshot={handleSaveSnapshot}
                     />
                 )}
             </main>
