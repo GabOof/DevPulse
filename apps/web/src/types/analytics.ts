@@ -155,6 +155,39 @@ export interface SavedAnalysisResponse {
     };
 }
 
+export type HealthDimensionKey =
+    | "activity"
+    | "consistency"
+    | "commit_hygiene"
+    | "change_clarity"
+    | "collaboration";
+
+export type ProjectHealthLevel = "excellent" | "good" | "attention" | "critical";
+
+export interface HealthDimension {
+    key: HealthDimensionKey;
+
+    score: number;
+
+    weight: number;
+
+    weightedScore: number;
+}
+
+export interface ProjectHealthScore {
+    score: number;
+
+    level: ProjectHealthLevel;
+
+    dimensions: HealthDimension[];
+
+    methodology: {
+        version: string;
+
+        description: string;
+    };
+}
+
 export interface RepositoryAnalytics {
     period: {
         days: number;
@@ -180,6 +213,8 @@ export interface RepositoryAnalytics {
     commitIntelligence: CommitIntelligence;
 
     collaboration: CollaborationAnalytics;
+
+    projectHealth: ProjectHealthScore;
 
     truncated: boolean;
 }

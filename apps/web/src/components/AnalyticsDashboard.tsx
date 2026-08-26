@@ -5,6 +5,7 @@ import { CommitActivityChart } from "./CommitActivityChart";
 import { CommitIntelligencePanel } from "./CommitIntelligencePanel";
 import { LanguageDistribution } from "./LanguageDistribution";
 import { ProjectEvolution } from "./ProjectEvolution";
+import { ProjectHealthPanel } from "./ProjectHealthPanel";
 
 interface AnalyticsDashboardProps {
     analytics: RepositoryAnalytics;
@@ -104,6 +105,8 @@ export function AnalyticsDashboard({
 
                 <LanguageDistribution languages={analytics.languages} />
             </div>
+
+            <ProjectHealthPanel health={analytics.projectHealth} />
 
             <CommitIntelligencePanel intelligence={analytics.commitIntelligence} />
 

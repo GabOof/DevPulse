@@ -15,12 +15,16 @@ import type {
     RepositoryAnalytics,
 } from "../types/analytics.js";
 
+import { HealthScoreService } from "./health-score.service.js";
+
 const GITHUB_API_URL = "https://api.github.com";
 
 const MAX_COMMIT_PAGES = 3;
 const COMMITS_PER_PAGE = 100;
 
 export class GitHubService {
+    private readonly healthScoreService = new HealthScoreService();
+
     private getHeaders(): HeadersInit {
         const headers: Record<string, string> = {
             Accept: "application/vnd.github+json",
@@ -121,6 +125,18 @@ export class GitHubService {
 
         const collaboration = this.buildCollaborationAnalytics(commitResult.commits);
 
+        const projectHealth = this.healthScoreService.calculate({
+            periodDays: days,
+
+            totalCommits,
+
+            activeDays,
+
+            commitIntelligence,
+
+            collaboration,
+        });
+
         return {
             period: {
                 days,
@@ -142,6 +158,8 @@ export class GitHubService {
             commitIntelligence,
 
             collaboration,
+
+            projectHealth,
 
             truncated: commitResult.truncated,
         };
