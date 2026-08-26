@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from "react";
 
 interface SearchRepositoryFormProps {
-    onSearch: (owner: string, repo: string) => Promise<void>;
+    onSearch: (repository: string) => void | Promise<void>;
 
-    loading: boolean;
+    loading?: boolean;
 }
 
-export function SearchRepositoryForm({ onSearch, loading }: SearchRepositoryFormProps) {
+export function SearchRepositoryForm({ onSearch, loading = false }: SearchRepositoryFormProps) {
     const [repository, setRepository] = useState("");
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -18,44 +18,30 @@ export function SearchRepositoryForm({ onSearch, loading }: SearchRepositoryForm
             return;
         }
 
-        const parts = value
-            .replace("https://github.com/", "")
-            .replace(/\/$/, "")
-            .split("/")
-            .filter(Boolean);
-
-        if (parts.length !== 2) {
-            return;
-        }
-
-        const [owner, repo] = parts;
-
-        await onSearch(owner, repo);
+        await onSearch(value);
     }
 
     return (
         <form className="repository-search" onSubmit={handleSubmit}>
-            <label htmlFor="repository" className="search-label">
-                Repositório GitHub
-            </label>
-
-            <div className="search-container">
+            <div className="search-input-wrapper">
                 <input
-                    id="repository"
                     type="text"
                     value={repository}
                     onChange={(event) => setRepository(event.target.value)}
-                    placeholder="ex: facebook/react"
-                    autoComplete="off"
+                    placeholder="GabOof/DevPulse ou https://github.com/GabOof/DevPulse"
+                    aria-label="Repositório do GitHub"
                     disabled={loading}
+                    autoComplete="off"
                 />
 
-                <button type="submit" disabled={loading}>
-                    {loading ? "Analisando..." : "Analisar projeto"}
+                <button type="submit" disabled={loading || !repository.trim()}>
+                    {loading ? "Analisando..." : "Analisar"}
                 </button>
             </div>
 
-            <span className="search-help">Informe owner/repository ou cole uma URL do GitHub.</span>
+            <p className="search-help">
+                Informe owner/repository ou cole uma URL completa do GitHub.
+            </p>
         </form>
     );
 }
