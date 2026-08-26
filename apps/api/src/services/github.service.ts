@@ -2,9 +2,12 @@ import type { GitHubRepository, RepositoryAnalysis } from "../types/github.js";
 
 import type {
     AnalyzedCommit,
+    CollaborationAnalytics,
+    CollaborationRisk,
     CommitCategory,
     CommitCategoryStats,
     CommitIntelligence,
+    ContributorActivity,
     DailyActivity,
     GitHubCommit,
     GitHubLanguages,
@@ -19,11 +22,19 @@ const COMMITS_PER_PAGE = 100;
 
 export class GitHubService {
     private getHeaders(): HeadersInit {
-        return {
+        const headers: Record<string, string> = {
             Accept: "application/vnd.github+json",
             "X-GitHub-Api-Version": "2026-03-10",
             "User-Agent": "DevPulse",
         };
+
+        const token = process.env.GITHUB_API_TOKEN?.trim();
+
+        if (token) {
+            headers.Authorization = `Bearer ${token}`;
+        }
+
+        return headers;
     }
 
     async getRepository(owner: string, repo: string): Promise<RepositoryAnalysis> {
@@ -108,6 +119,8 @@ export class GitHubService {
 
         const commitIntelligence = this.buildCommitIntelligence(commitResult.commits);
 
+        const collaboration = this.buildCollaborationAnalytics(commitResult.commits);
+
         return {
             period: {
                 days,
@@ -127,6 +140,8 @@ export class GitHubService {
             languages,
 
             commitIntelligence,
+
+            collaboration,
 
             truncated: commitResult.truncated,
         };
@@ -519,6 +534,105 @@ export class GitHubService {
         }
 
         return "other";
+    }
+
+    private buildCollaborationAnalytics(commits: GitHubCommit[]): CollaborationAnalytics {
+        const contributorMap = new Map<
+            string,
+            {
+                id: string;
+                name: string;
+                username: string | null;
+                avatarUrl: string | null;
+                profileUrl: string | null;
+                commits: number;
+            }
+        >();
+
+        for (const commit of commits) {
+            const username = commit.author?.login ?? null;
+
+            const name = commit.commit.author?.name ?? username ?? "Autor desconhecido";
+
+            /*
+             * Quando existe uma conta GitHub
+             * vinculada ao commit, ela será
+             * nossa identidade principal.
+             *
+             * Caso contrário, usamos o nome
+             * armazenado no commit.
+             */
+            const id = username
+                ? `github:${username.toLowerCase()}`
+                : `name:${name.trim().toLowerCase()}`;
+
+            const existing = contributorMap.get(id);
+
+            if (existing) {
+                existing.commits += 1;
+
+                continue;
+            }
+
+            contributorMap.set(id, {
+                id,
+
+                name,
+
+                username,
+
+                avatarUrl: commit.author?.avatar_url ?? null,
+
+                profileUrl: username ? `https://github.com/${username}` : null,
+
+                commits: 1,
+            });
+        }
+
+        const totalCommits = commits.length;
+
+        const contributors: ContributorActivity[] = Array.from(contributorMap.values())
+            .map((contributor) => ({
+                ...contributor,
+
+                percentage:
+                    totalCommits > 0
+                        ? Number(((contributor.commits / totalCommits) * 100).toFixed(1))
+                        : 0,
+            }))
+            .sort((a, b) => b.commits - a.commits);
+
+        const topContributor = contributors[0] ?? null;
+
+        const concentrationPercentage = topContributor?.percentage ?? 0;
+
+        return {
+            totalContributors: contributors.length,
+
+            topContributor,
+
+            concentrationPercentage,
+
+            concentrationRisk: this.calculateConcentrationRisk(concentrationPercentage),
+
+            contributors,
+        };
+    }
+
+    private calculateConcentrationRisk(percentage: number): CollaborationRisk {
+        if (percentage >= 80) {
+            return "very_high";
+        }
+
+        if (percentage >= 60) {
+            return "high";
+        }
+
+        if (percentage >= 40) {
+            return "medium";
+        }
+
+        return "low";
     }
 
     private handleResponseErrors(response: Response): void {
