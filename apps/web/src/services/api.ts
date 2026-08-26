@@ -7,7 +7,7 @@ import type {
     SavedAnalysisResponse,
 } from "../types/analytics";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3333";
+import { API_URL } from "../config/api";
 
 interface ApiError {
     error: string;
@@ -34,7 +34,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export async function getRepository(owner: string, repo: string): Promise<Repository> {
     const response = await fetch(
-        `${API_URL}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
+        `${API_URL}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+        { credentials: "include" }
     );
 
     return handleResponse<Repository>(response);
@@ -46,7 +47,8 @@ export async function getRepositoryAnalytics(
     days: AnalyticsPeriod = 30
 ): Promise<RepositoryAnalytics> {
     const response = await fetch(
-        `${API_URL}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/analytics?days=${days}`
+        `${API_URL}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/analytics?days=${days}`,
+        { credentials: "include" }
     );
 
     return handleResponse<RepositoryAnalytics>(response);
@@ -61,6 +63,7 @@ export async function saveRepositoryAnalysis(
         `${API_URL}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/analyze?days=${days}`,
         {
             method: "POST",
+            credentials: "include",
         }
     );
 
@@ -73,7 +76,8 @@ export async function getRepositoryHistory(
     days: AnalyticsPeriod
 ): Promise<RepositoryHistory> {
     const response = await fetch(
-        `${API_URL}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/history?days=${days}`
+        `${API_URL}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/history?days=${days}`,
+        { credentials: "include" }
     );
 
     return handleResponse<RepositoryHistory>(response);
