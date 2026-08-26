@@ -1,4 +1,5 @@
 import cors from "@fastify/cors";
+import "dotenv/config";
 import Fastify from "fastify";
 
 import { repositoryRoutes } from "./routes/repository.routes.js";
