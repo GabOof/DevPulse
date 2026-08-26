@@ -105,7 +105,7 @@ function App() {
                     <span>DevPulse</span>
                 </a>
 
-                <span className="version">v0.2</span>
+                <span className="version">v0.4</span>
             </header>
 
             <main>
