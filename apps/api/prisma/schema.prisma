@@ -30,8 +30,10 @@ model AnalysisSnapshot {
   id String @id @default(cuid())
 
   repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
-  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  userId String?
+  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   periodDays Int
 
@@ -67,4 +69,63 @@ model AnalysisSnapshot {
   @@index([repositoryId])
   @@index([repositoryId, periodDays])
   @@index([repositoryId, analyzedAt])
+  @@index([userId])
+}
+
+model User {
+  id String @id @default(cuid())
+
+  githubId BigInt @unique
+
+  login String @unique
+
+  name String?
+
+  avatarUrl  String?
+  profileUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  githubCredential GitHubCredential?
+
+  sessions Session[]
+
+  analyses AnalysisSnapshot[]
+}
+
+model GitHubCredential {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  accessTokenEncrypted String @db.Text
+
+  accessTokenExpiresAt DateTime?
+
+  refreshTokenEncrypted String? @db.Text
+
+  refreshTokenExpiresAt DateTime?
+
+  tokenType String @default("bearer")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Session {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String @unique
+
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
