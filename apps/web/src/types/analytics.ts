@@ -73,6 +73,33 @@ export interface CommitIntelligence {
     recentCommits: AnalyzedCommit[];
 }
 
+export type CollaborationRisk = "low" | "medium" | "high" | "very_high";
+
+export interface ContributorActivity {
+    id: string;
+
+    name: string;
+    username: string | null;
+
+    avatarUrl: string | null;
+    profileUrl: string | null;
+
+    commits: number;
+    percentage: number;
+}
+
+export interface CollaborationAnalytics {
+    totalContributors: number;
+
+    topContributor: ContributorActivity | null;
+
+    concentrationPercentage: number;
+
+    concentrationRisk: CollaborationRisk;
+
+    contributors: ContributorActivity[];
+}
+
 export interface RepositoryAnalytics {
     period: {
         days: number;
@@ -96,6 +123,8 @@ export interface RepositoryAnalytics {
     languages: LanguageUsage[];
 
     commitIntelligence: CommitIntelligence;
+
+    collaboration: CollaborationAnalytics;
 
     truncated: boolean;
 }
