@@ -46,6 +46,22 @@ function isDaysValidationError(error: ExtendedFastifyError): boolean {
     );
 }
 
+function isRepositoryValidationError(error: ExtendedFastifyError): boolean {
+    if (error.validationContext !== "params") {
+        return false;
+    }
+
+    return Boolean(
+        error.validation?.some(
+            (validation) =>
+                validation.instancePath === "/owner" ||
+                validation.instancePath === "/repo" ||
+                validation.params?.missingProperty === "owner" ||
+                validation.params?.missingProperty === "repo"
+        )
+    );
+}
+
 /*
  * =========================================================
  * ERROR HANDLER
@@ -118,11 +134,9 @@ export function registerErrorHandler(app: FastifyInstance): void {
 
         if (fastifyError.validation) {
             /*
-             * Preservamos o contrato
-             * que o frontend e os
-             * testes já utilizam para
-             * days.
+             * Período inválido.
              */
+
             if (isDaysValidationError(fastifyError)) {
                 return reply.status(400).send({
                     error: "Invalid period",
@@ -132,10 +146,18 @@ export function registerErrorHandler(app: FastifyInstance): void {
             }
 
             /*
-             * Não devolvemos a
-             * estrutura interna do
-             * AJV para o cliente.
+             * Owner ou repository
+             * inválido.
              */
+
+            if (isRepositoryValidationError(fastifyError)) {
+                return reply.status(400).send({
+                    error: "Invalid repository",
+
+                    message: "Owner ou nome do repositório inválido.",
+                });
+            }
+
             return reply.status(400).send({
                 error: "Validation error",
 

@@ -1,13 +1,10 @@
 import "dotenv/config";
 
-import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
-
-import cors from "@fastify/cors";
+import Fastify, { type FastifyInstance } from "fastify";
 
 import cookie from "@fastify/cookie";
-
+import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
-
 import rateLimit from "@fastify/rate-limit";
 
 import { repositoryRoutes } from "./routes/repository.routes.js";
@@ -15,6 +12,23 @@ import { repositoryRoutes } from "./routes/repository.routes.js";
 import { authRoutes } from "./routes/auth.routes.js";
 
 import { registerErrorHandler } from "./plugins/error-handler.js";
+
+/*
+ * =========================================================
+ * BUILD APP OPTIONS
+ * =========================================================
+ *
+ * Não usamos FastifyServerOptions diretamente porque
+ * ele também representa configurações HTTP/2, HTTPS,
+ * JTD etc.
+ *
+ * Neste momento o DevPulse só precisa controlar se
+ * o logger estará ativo.
+ */
+
+interface BuildAppOptions {
+    logger?: boolean;
+}
 
 /*
  * =========================================================
@@ -38,8 +52,42 @@ function getRateLimitMax(): number {
  * =========================================================
  */
 
-export async function buildApp(options: FastifyServerOptions = {}): Promise<FastifyInstance> {
-    const app = Fastify(options);
+export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
+    /*
+     * =====================================================
+     * FASTIFY
+     * =====================================================
+     *
+     * O Fastify usa por padrão:
+     *
+     * removeAdditional: true
+     *
+     * Isso significa que:
+     *
+     * ?days=30&admin=true
+     *
+     * com additionalProperties: false
+     *
+     * poderia simplesmente ter "admin"
+     * removido.
+     *
+     * No DevPulse queremos validação
+     * estrita:
+     *
+     * parâmetro desconhecido
+     *          ↓
+     *         400
+     */
+
+    const app = Fastify({
+        logger: options.logger ?? false,
+
+        ajv: {
+            customOptions: {
+                removeAdditional: false,
+            },
+        },
+    });
 
     /*
      * =====================================================
@@ -82,13 +130,11 @@ export async function buildApp(options: FastifyServerOptions = {}): Promise<Fast
      * RATE LIMIT
      * =====================================================
      *
-     * Protege a API do DevPulse,
-     * independentemente do rate limit
-     * existente na API do GitHub.
+     * Proteção própria do DevPulse.
      *
      * Default:
      *
-     * 120 requests / minuto / IP
+     * 120 requisições por minuto/IP.
      */
 
     await app.register(rateLimit, {
@@ -99,7 +145,7 @@ export async function buildApp(options: FastifyServerOptions = {}): Promise<Fast
 
     /*
      * =====================================================
-     * HEALTH
+     * HEALTH CHECK
      * =====================================================
      */
 
