@@ -2,22 +2,96 @@ import "dotenv/config";
 
 import { buildApp } from "./app.js";
 
-const PORT = Number(process.env.PORT ?? 3333);
+import { env, validateEnvironment } from "./config/env.js";
 
-const HOST = process.env.HOST ?? "0.0.0.0";
+/*
+ * =========================================================
+ * ENVIRONMENT VALIDATION
+ * =========================================================
+ *
+ * Antes de abrir a porta HTTP, validamos
+ * todas as configurações críticas.
+ */
 
-async function start() {
-    const app = await buildApp({
-        logger: true,
+try {
+    validateEnvironment();
+} catch (error) {
+    console.error("Invalid DevPulse environment configuration.");
+
+    console.error(error);
+
+    process.exit(1);
+}
+
+/*
+ * =========================================================
+ * APPLICATION
+ * =========================================================
+ */
+
+const app = await buildApp({
+    logger: true,
+});
+
+/*
+ * =========================================================
+ * START SERVER
+ * =========================================================
+ */
+
+try {
+    await app.listen({
+        host: env.host,
+
+        port: env.port,
     });
 
-    try {
-        await app.listen({
-            port: PORT,
-            host: HOST,
-        });
+    app.log.info(
+        {
+            host: env.host,
 
-        app.log.info(`DevPulse API running on port ${PORT}`);
+            port: env.port,
+
+            environment: env.nodeEnv,
+        },
+
+        "DevPulse API started"
+    );
+} catch (error) {
+    app.log.error(error);
+
+    process.exit(1);
+}
+
+/*
+ * =========================================================
+ * GRACEFUL SHUTDOWN
+ * =========================================================
+ */
+
+let shuttingDown = false;
+
+async function shutdown(signal: string) {
+    if (shuttingDown) {
+        return;
+    }
+
+    shuttingDown = true;
+
+    app.log.info(
+        {
+            signal,
+        },
+
+        "Shutting down DevPulse API"
+    );
+
+    try {
+        await app.close();
+
+        app.log.info("DevPulse API stopped");
+
+        process.exit(0);
     } catch (error) {
         app.log.error(error);
 
@@ -25,4 +99,26 @@ async function start() {
     }
 }
 
-void start();
+/*
+ * Docker / Linux shutdown.
+ */
+
+process.on(
+    "SIGTERM",
+
+    () => {
+        void shutdown("SIGTERM");
+    }
+);
+
+/*
+ * Ctrl+C.
+ */
+
+process.on(
+    "SIGINT",
+
+    () => {
+        void shutdown("SIGINT");
+    }
+);

@@ -2,6 +2,8 @@ import type { RepositoryAnalysis } from "../types/github.js";
 
 import type { RepositoryAnalytics } from "../types/analytics.js";
 
+import { env } from "../config/env.js";
+
 import { GitHubService } from "./github.service.js";
 
 import { cacheService, type CacheResult, type CacheService } from "./cache.service.js";
@@ -13,8 +15,8 @@ import { cacheKeyService, type CacheKeyService } from "./cache-key.service.js";
  * GITHUB DATA SOURCE
  * =========================================================
  *
- * Esta interface deixa o serviço fácil
- * de testar.
+ * Mantemos uma interface para que o serviço
+ * possa ser facilmente mockado nos testes.
  */
 
 export interface GitHubDataSource {
@@ -37,6 +39,12 @@ export interface GitHubDataSource {
     ): Promise<RepositoryAnalytics>;
 }
 
+/*
+ * =========================================================
+ * OPTIONS
+ * =========================================================
+ */
+
 export interface CachedGitHubOptions {
     forceRefresh?: boolean;
 }
@@ -47,38 +55,12 @@ export interface CachedGitHubOptions {
  * =========================================================
  */
 
-function getPositiveInteger(
-    value: string | undefined,
-
-    fallback: number
-): number {
-    const parsed = Number(value);
-
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-        return fallback;
-    }
-
-    return Math.floor(parsed);
-}
-
 function getRepositoryTtl(): number {
-    const seconds = getPositiveInteger(
-        process.env.CACHE_REPOSITORY_TTL_SECONDS,
-
-        300
-    );
-
-    return seconds * 1000;
+    return env.cache.repositoryTtlSeconds * 1000;
 }
 
 function getAnalyticsTtl(): number {
-    const seconds = getPositiveInteger(
-        process.env.CACHE_ANALYTICS_TTL_SECONDS,
-
-        120
-    );
-
-    return seconds * 1000;
+    return env.cache.analyticsTtlSeconds * 1000;
 }
 
 /*

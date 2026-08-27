@@ -7,45 +7,26 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 
+import { env } from "./config/env.js";
+
 import { repositoryRoutes } from "./routes/repository.routes.js";
 
 import { authRoutes } from "./routes/auth.routes.js";
 
 import { registerErrorHandler } from "./plugins/error-handler.js";
 
+import { checkReadiness } from "./services/readiness.service.js";
+
 import { DEVPULSE_EXPOSED_HEADERS } from "./http/github-response-meta.js";
 
 /*
  * =========================================================
- * BUILD APP OPTIONS
+ * OPTIONS
  * =========================================================
- *
- * Não usamos FastifyServerOptions diretamente porque
- * ele também representa configurações HTTP/2, HTTPS,
- * JTD etc.
- *
- * Neste momento o DevPulse só precisa controlar se
- * o logger estará ativo.
  */
 
 interface BuildAppOptions {
     logger?: boolean;
-}
-
-/*
- * =========================================================
- * RATE LIMIT
- * =========================================================
- */
-
-function getRateLimitMax(): number {
-    const value = Number(process.env.RATE_LIMIT_MAX ?? 120);
-
-    if (!Number.isFinite(value) || value <= 0) {
-        return 120;
-    }
-
-    return Math.floor(value);
 }
 
 /*
@@ -55,34 +36,14 @@ function getRateLimitMax(): number {
  */
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
-    /*
-     * =====================================================
-     * FASTIFY
-     * =====================================================
-     *
-     * O Fastify usa por padrão:
-     *
-     * removeAdditional: true
-     *
-     * Isso significa que:
-     *
-     * ?days=30&admin=true
-     *
-     * com additionalProperties: false
-     *
-     * poderia simplesmente ter "admin"
-     * removido.
-     *
-     * No DevPulse queremos validação
-     * estrita:
-     *
-     * parâmetro desconhecido
-     *          ↓
-     *         400
-     */
-
     const app = Fastify({
         logger: options.logger ?? false,
+
+        /*
+         * Não queremos que o AJV remova
+         * silenciosamente parâmetros
+         * desconhecidos.
+         */
 
         ajv: {
             customOptions: {
@@ -114,9 +75,17 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
      */
 
     await app.register(cors, {
-        origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
+        origin: env.frontendUrl,
 
         credentials: true,
+
+        /*
+         * Permite que o frontend leia:
+         *
+         * X-DevPulse-Cache
+         * X-DevPulse-GitHub-Remaining
+         * etc.
+         */
 
         exposedHeaders: DEVPULSE_EXPOSED_HEADERS,
     });
@@ -133,24 +102,25 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
      * =====================================================
      * RATE LIMIT
      * =====================================================
-     *
-     * Proteção própria do DevPulse.
-     *
-     * Default:
-     *
-     * 120 requisições por minuto/IP.
      */
 
     await app.register(rateLimit, {
-        max: getRateLimitMax(),
+        max: env.rateLimit.max,
 
         timeWindow: "1 minute",
     });
 
     /*
      * =====================================================
-     * HEALTH CHECK
+     * LIVENESS
      * =====================================================
+     *
+     * /health responde mesmo que PostgreSQL
+     * esteja indisponível.
+     *
+     * Isso indica apenas:
+     *
+     * "o processo da API está vivo?"
      */
 
     app.get(
@@ -162,6 +132,39 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
                 service: "devpulse-api",
             };
+        }
+    );
+
+    /*
+     * =====================================================
+     * READINESS
+     * =====================================================
+     *
+     * /ready verifica se a aplicação está
+     * realmente pronta para receber tráfego.
+     *
+     * Nesta versão verificamos PostgreSQL.
+     */
+
+    app.get(
+        "/ready",
+
+        async (request, reply) => {
+            const readiness = await checkReadiness();
+
+            if (readiness.status === "ready") {
+                return reply.status(200).send(readiness);
+            }
+
+            request.log.warn(
+                {
+                    readiness,
+                },
+
+                "DevPulse API is not ready"
+            );
+
+            return reply.status(503).send(readiness);
         }
     );
 
