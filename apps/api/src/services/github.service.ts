@@ -12,6 +12,7 @@ import type {
 } from "../types/analytics.js";
 
 import { CommitIntelligenceService } from "./commit-intelligence.service.js";
+import { githubConditionalCacheService } from "./github-conditional-cache.service.js";
 import { githubRateLimitService } from "./github-rate-limit.service.js";
 import { HealthScoreService } from "./health-score.service.js";
 
@@ -40,20 +41,109 @@ export class GitHubService {
         return headers;
     }
 
+    private async getJsonWithConditionalCache<T>(
+        url: string,
+
+        accessToken?: string
+    ): Promise<T> {
+        /*
+         * =====================================================
+         * CONDITIONAL CACHE
+         * =====================================================
+         */
+
+        const cached = githubConditionalCacheService.get<T>(url, accessToken);
+
+        /*
+         * Headers base da API.
+         */
+
+        const headers = new Headers(this.getHeaders(accessToken));
+
+        /*
+         * Se já conhecemos o ETag dessa
+         * representação, pedimos ao GitHub
+         * apenas para verificar se mudou.
+         */
+
+        if (cached) {
+            headers.set("If-None-Match", cached.etag);
+        }
+
+        const response = await fetch(url, {
+            headers,
+        });
+
+        /*
+         * Sempre observamos o rate limit,
+         * inclusive em 304.
+         */
+
+        githubRateLimitService.observe(response.headers, accessToken);
+
+        /*
+         * =====================================================
+         * 304 NOT MODIFIED
+         * =====================================================
+         */
+
+        if (response.status === 304) {
+            /*
+             * Só enviamos If-None-Match quando
+             * existia uma entrada local.
+             *
+             * Esta proteção deixa o helper
+             * seguro mesmo se alguma coisa
+             * mudar futuramente.
+             */
+
+            if (!cached) {
+                throw new Error("GITHUB_CONDITIONAL_CACHE_MISS");
+            }
+
+            return cached.data;
+        }
+
+        /*
+         * =====================================================
+         * ERRORS
+         * =====================================================
+         */
+
+        this.handleResponseErrors(response);
+
+        /*
+         * =====================================================
+         * 200 RESPONSE
+         * =====================================================
+         */
+
+        const data = (await response.json()) as T;
+
+        const etag = response.headers.get("etag");
+
+        /*
+         * Nem todo endpoint é obrigado a
+         * fornecer ETag.
+         *
+         * Só armazenamos quando existir.
+         */
+
+        if (etag) {
+            githubConditionalCacheService.set(url, etag, data, accessToken);
+        }
+
+        return data;
+    }
+
     async getRepository(
         owner: string,
         repo: string,
         accessToken?: string
     ): Promise<RepositoryAnalysis> {
-        const response = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}`, {
-            headers: this.getHeaders(accessToken),
-        });
+        const url = `${GITHUB_API_URL}/repos/${owner}/${repo}`;
 
-        githubRateLimitService.observe(response.headers, accessToken);
-
-        this.handleResponseErrors(response);
-
-        const data = (await response.json()) as GitHubRepository;
+        const data = await this.getJsonWithConditionalCache<GitHubRepository>(url, accessToken);
 
         return {
             id: data.id,
@@ -240,15 +330,9 @@ export class GitHubService {
         repo: string,
         accessToken?: string
     ): Promise<LanguageUsage[]> {
-        const response = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/languages`, {
-            headers: this.getHeaders(accessToken),
-        });
+        const url = `${GITHUB_API_URL}/repos/${owner}/${repo}/languages`;
 
-        githubRateLimitService.observe(response.headers, accessToken);
-
-        this.handleResponseErrors(response);
-
-        const data = (await response.json()) as GitHubLanguages;
+        const data = await this.getJsonWithConditionalCache<GitHubLanguages>(url, accessToken);
 
         const totalBytes = Object.values(data).reduce((total, bytes) => total + bytes, 0);
 

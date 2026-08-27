@@ -4,6 +4,8 @@ import { cacheService } from "../services/cache.service.js";
 
 import { githubRateLimitService } from "../services/github-rate-limit.service.js";
 
+import { githubConditionalCacheService } from "../services/github-conditional-cache.service.js";
+
 /*
  * =========================================================
  * GLOBAL TEST SETUP
@@ -24,4 +26,6 @@ beforeEach(() => {
     cacheService.clear();
 
     githubRateLimitService.clear();
+
+    githubConditionalCacheService.clear();
 });
