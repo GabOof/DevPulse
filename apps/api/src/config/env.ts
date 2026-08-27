@@ -3,21 +3,8 @@
  * ENVIRONMENT CONFIGURATION
  * =========================================================
  *
- * Centraliza o acesso às variáveis de ambiente
- * utilizadas pela API do DevPulse.
- *
- * Importante:
- *
- * As configurações são avaliadas através de
- * getters. Isso evita que testes unitários que
- * não utilizam banco/OAuth falhem simplesmente
- * por importar este módulo.
- */
-
-/*
- * =========================================================
- * HELPERS
- * =========================================================
+ * Este é o único módulo da aplicação que deve acessar
+ * process.env diretamente.
  */
 
 function readEnv(name: string): string | undefined {
@@ -52,6 +39,36 @@ function positiveIntegerEnv(name: string, fallback: number): number {
     return Math.floor(value);
 }
 
+function booleanEnv(name: string, fallback: boolean): boolean {
+    const raw = readEnv(name);
+
+    if (!raw) {
+        return fallback;
+    }
+
+    const normalized = raw.toLowerCase();
+
+    if (
+        normalized === "true" ||
+        normalized === "1" ||
+        normalized === "yes" ||
+        normalized === "on"
+    ) {
+        return true;
+    }
+
+    if (
+        normalized === "false" ||
+        normalized === "0" ||
+        normalized === "no" ||
+        normalized === "off"
+    ) {
+        return false;
+    }
+
+    throw new Error(`ENV_INVALID_BOOLEAN_${name}`);
+}
+
 function validateUrl(name: string, value: string): string {
     try {
         new URL(value);
@@ -64,13 +81,11 @@ function validateUrl(name: string, value: string): string {
 
 function validateEncryptionKey(value: string): string {
     /*
-     * AES-256 utiliza chave de
-     * 32 bytes.
+     * AES-256:
      *
-     * No DevPulse a chave é
-     * armazenada em hexadecimal:
-     *
-     * 32 bytes = 64 caracteres hex.
+     * 32 bytes
+     * =
+     * 64 caracteres hexadecimais.
      */
 
     if (!/^[0-9a-fA-F]{64}$/.test(value)) {
@@ -103,6 +118,25 @@ export const env = {
 
     get port(): number {
         return positiveIntegerEnv("PORT", 3333);
+    },
+
+    /*
+     * =====================================================
+     * PROXY
+     * =====================================================
+     *
+     * Deve permanecer false quando a API
+     * está diretamente exposta.
+     *
+     * Em produção atrás de um proxy confiável,
+     * como load balancer/reverse proxy,
+     * configure:
+     *
+     * TRUST_PROXY=true
+     */
+
+    get trustProxy(): boolean {
+        return booleanEnv("TRUST_PROXY", false);
     },
 
     /*
@@ -153,7 +187,7 @@ export const env = {
 
     /*
      * =====================================================
-     * AUTHENTICATION
+     * AUTH
      * =====================================================
      */
 
@@ -218,63 +252,55 @@ export function isDevelopment(): boolean {
  * =========================================================
  * STARTUP VALIDATION
  * =========================================================
- *
- * Chamado pelo server.ts.
- *
- * Aqui validamos as configurações críticas
- * antes de abrir a porta HTTP.
  */
 
 export function validateEnvironment(): void {
     /*
-     * DATABASE
+     * Application
+     */
+
+    void env.nodeEnv;
+    void env.host;
+    void env.port;
+    void env.trustProxy;
+
+    /*
+     * Database
      */
 
     void env.databaseUrl;
 
     /*
-     * FRONTEND
+     * Frontend
      */
 
     void env.frontendUrl;
 
     /*
-     * GITHUB OAUTH
+     * GitHub
      */
 
     void env.github.clientId;
-
     void env.github.clientSecret;
-
     void env.github.callbackUrl;
 
     /*
-     * AUTH
+     * Authentication
      */
 
     void env.auth.encryptionKey;
-
     void env.auth.sessionCookieName;
 
     /*
-     * SERVER
-     */
-
-    void env.host;
-
-    void env.port;
-
-    /*
-     * RATE LIMIT
+     * Rate limiting
      */
 
     void env.rateLimit.max;
 
     /*
-     * CACHE
+     * Cache
      */
 
     void env.cache.repositoryTtlSeconds;
-
     void env.cache.analyticsTtlSeconds;
 }

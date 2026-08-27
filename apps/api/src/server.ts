@@ -4,13 +4,12 @@ import { buildApp } from "./app.js";
 
 import { env, validateEnvironment } from "./config/env.js";
 
+import { prisma } from "./lib/prisma.js";
+
 /*
  * =========================================================
  * ENVIRONMENT VALIDATION
  * =========================================================
- *
- * Antes de abrir a porta HTTP, validamos
- * todas as configurações críticas.
  */
 
 try {
@@ -53,12 +52,28 @@ try {
             port: env.port,
 
             environment: env.nodeEnv,
+
+            trustProxy: env.trustProxy,
         },
 
         "DevPulse API started"
     );
 } catch (error) {
     app.log.error(error);
+
+    /*
+     * Caso o Prisma tenha sido inicializado
+     * durante o bootstrap, encerramos também.
+     */
+
+    try {
+        await prisma.$disconnect();
+    } catch {
+        /*
+         * Não substituímos o erro original
+         * de inicialização.
+         */
+    }
 
     process.exit(1);
 }
@@ -71,7 +86,7 @@ try {
 
 let shuttingDown = false;
 
-async function shutdown(signal: string) {
+async function shutdown(signal: string): Promise<void> {
     if (shuttingDown) {
         return;
     }
@@ -86,21 +101,59 @@ async function shutdown(signal: string) {
         "Shutting down DevPulse API"
     );
 
+    let exitCode = 0;
+
+    /*
+     * =====================================================
+     * FASTIFY
+     * =====================================================
+     */
+
     try {
         await app.close();
 
-        app.log.info("DevPulse API stopped");
-
-        process.exit(0);
+        app.log.info("Fastify server closed");
     } catch (error) {
-        app.log.error(error);
+        exitCode = 1;
 
-        process.exit(1);
+        app.log.error(
+            error,
+
+            "Failed to close Fastify server"
+        );
     }
+
+    /*
+     * =====================================================
+     * PRISMA
+     * =====================================================
+     */
+
+    try {
+        await prisma.$disconnect();
+
+        app.log.info("Prisma disconnected");
+    } catch (error) {
+        exitCode = 1;
+
+        app.log.error(
+            error,
+
+            "Failed to disconnect Prisma"
+        );
+    }
+
+    /*
+     * Não usamos process.exit() aqui
+     * porque isso pode interromper logs
+     * ou operações pendentes.
+     */
+
+    process.exitCode = exitCode;
 }
 
 /*
- * Docker / Linux shutdown.
+ * Docker / Kubernetes / providers.
  */
 
 process.on(

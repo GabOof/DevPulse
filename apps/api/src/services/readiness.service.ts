@@ -1,6 +1,4 @@
-import { Client } from "pg";
-
-import { env } from "../config/env.js";
+import { prisma } from "../lib/prisma.js";
 
 /*
  * =========================================================
@@ -26,35 +24,21 @@ export interface ReadinessResult {
 
 /*
  * =========================================================
- * DATABASE
+ * DATABASE CHECK
  * =========================================================
  */
 
 async function checkDatabase(): Promise<DatabaseReadinessResult> {
     const startedAt = Date.now();
 
-    /*
-     * Criamos uma conexão curta apenas para
-     * readiness.
-     *
-     * Ela é encerrada após SELECT 1.
-     *
-     * Isso evita deixar outro pool permanente
-     * aberto além do utilizado pelo Prisma.
-     */
-
-    const client = new Client({
-        connectionString: env.databaseUrl,
-
-        connectionTimeoutMillis: 3000,
-
-        application_name: "devpulse-readiness",
-    });
-
     try {
-        await client.connect();
+        /*
+         * A consulta passa pelo mesmo
+         * Prisma utilizado pelo restante
+         * da aplicação.
+         */
 
-        await client.query("SELECT 1");
+        await prisma.$queryRawUnsafe("SELECT 1");
 
         return {
             status: "up",
@@ -62,21 +46,16 @@ async function checkDatabase(): Promise<DatabaseReadinessResult> {
             latencyMs: Date.now() - startedAt,
         };
     } catch {
+        /*
+         * Não retornamos detalhes internos
+         * do PostgreSQL ao cliente.
+         */
+
         return {
             status: "down",
 
             latencyMs: Date.now() - startedAt,
         };
-    } finally {
-        try {
-            await client.end();
-        } catch {
-            /*
-             * Caso a conexão nem tenha sido
-             * estabelecida, não propagamos
-             * erro de encerramento.
-             */
-        }
     }
 }
 
@@ -89,10 +68,8 @@ async function checkDatabase(): Promise<DatabaseReadinessResult> {
 export async function checkReadiness(): Promise<ReadinessResult> {
     const database = await checkDatabase();
 
-    const ready = database.status === "up";
-
     return {
-        status: ready ? "ready" : "not_ready",
+        status: database.status === "up" ? "ready" : "not_ready",
 
         service: "devpulse-api",
 

@@ -15,18 +15,24 @@ import { authRoutes } from "./routes/auth.routes.js";
 
 import { registerErrorHandler } from "./plugins/error-handler.js";
 
-import { checkReadiness } from "./services/readiness.service.js";
+import { checkReadiness, type ReadinessResult } from "./services/readiness.service.js";
 
 import { DEVPULSE_EXPOSED_HEADERS } from "./http/github-response-meta.js";
 
 /*
  * =========================================================
- * OPTIONS
+ * TYPES
  * =========================================================
  */
 
+type ReadinessCheck = () => Promise<ReadinessResult>;
+
 interface BuildAppOptions {
     logger?: boolean;
+
+    trustProxy?: boolean;
+
+    readinessCheck?: ReadinessCheck;
 }
 
 /*
@@ -36,14 +42,25 @@ interface BuildAppOptions {
  */
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
+    /*
+     * Permite substituir o check
+     * em testes sem acessar PostgreSQL.
+     */
+
+    const readinessCheck = options.readinessCheck ?? checkReadiness;
+
     const app = Fastify({
         logger: options.logger ?? false,
 
         /*
-         * Não queremos que o AJV remova
-         * silenciosamente parâmetros
-         * desconhecidos.
+         * Necessário quando a API fica
+         * atrás de reverse proxy.
+         *
+         * Não habilitamos automaticamente:
+         * somente TRUST_PROXY=true.
          */
+
+        trustProxy: options.trustProxy ?? env.trustProxy,
 
         ajv: {
             customOptions: {
@@ -79,14 +96,6 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
         credentials: true,
 
-        /*
-         * Permite que o frontend leia:
-         *
-         * X-DevPulse-Cache
-         * X-DevPulse-GitHub-Remaining
-         * etc.
-         */
-
         exposedHeaders: DEVPULSE_EXPOSED_HEADERS,
     });
 
@@ -112,45 +121,47 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
     /*
      * =====================================================
-     * LIVENESS
+     * HEALTH
      * =====================================================
      *
-     * /health responde mesmo que PostgreSQL
-     * esteja indisponível.
+     * Liveness check.
      *
-     * Isso indica apenas:
-     *
-     * "o processo da API está vivo?"
+     * Não verifica PostgreSQL.
      */
 
     app.get(
         "/health",
 
-        async () => {
-            return {
+        async (_request, reply) => {
+            reply.header("Cache-Control", "no-store");
+
+            return reply.send({
                 status: "ok",
 
                 service: "devpulse-api",
-            };
+            });
         }
     );
 
     /*
      * =====================================================
-     * READINESS
+     * READY
      * =====================================================
      *
-     * /ready verifica se a aplicação está
-     * realmente pronta para receber tráfego.
+     * Readiness check.
      *
-     * Nesta versão verificamos PostgreSQL.
+     * A instância somente é considerada
+     * pronta caso as dependências críticas
+     * estejam disponíveis.
      */
 
     app.get(
         "/ready",
 
         async (request, reply) => {
-            const readiness = await checkReadiness();
+            reply.header("Cache-Control", "no-store");
+
+            const readiness = await readinessCheck();
 
             if (readiness.status === "ready") {
                 return reply.status(200).send(readiness);
@@ -174,9 +185,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
      * =====================================================
      */
 
-    await app.register(repositoryRoutes, {
-        prefix: "/api",
-    });
+    await app.register(
+        repositoryRoutes,
+
+        {
+            prefix: "/api",
+        }
+    );
 
     /*
      * =====================================================
@@ -184,9 +199,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
      * =====================================================
      */
 
-    await app.register(authRoutes, {
-        prefix: "/api/auth",
-    });
+    await app.register(
+        authRoutes,
+
+        {
+            prefix: "/api/auth",
+        }
+    );
 
     return app;
 }
