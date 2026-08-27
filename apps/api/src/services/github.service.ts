@@ -12,6 +12,7 @@ import type {
 } from "../types/analytics.js";
 
 import { CommitIntelligenceService } from "./commit-intelligence.service.js";
+import { githubRateLimitService } from "./github-rate-limit.service.js";
 import { HealthScoreService } from "./health-score.service.js";
 
 const GITHUB_API_URL = "https://api.github.com";
@@ -47,6 +48,8 @@ export class GitHubService {
         const response = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}`, {
             headers: this.getHeaders(accessToken),
         });
+
+        githubRateLimitService.observe(response.headers, accessToken);
 
         this.handleResponseErrors(response);
 
@@ -197,6 +200,8 @@ export class GitHubService {
                 }
             );
 
+            githubRateLimitService.observe(response.headers, accessToken);
+
             /*
              * Um repositório Git vazio pode
              * retornar HTTP 409.
@@ -238,6 +243,8 @@ export class GitHubService {
         const response = await fetch(`${GITHUB_API_URL}/repos/${owner}/${repo}/languages`, {
             headers: this.getHeaders(accessToken),
         });
+
+        githubRateLimitService.observe(response.headers, accessToken);
 
         this.handleResponseErrors(response);
 
@@ -417,8 +424,30 @@ export class GitHubService {
             throw new Error("REPOSITORY_NOT_FOUND");
         }
 
-        if (response.status === 403 || response.status === 429) {
+        if (response.status === 429) {
             throw new Error("GITHUB_RATE_LIMIT");
+        }
+
+        if (response.status === 403) {
+            const remaining = response.headers.get("x-ratelimit-remaining");
+
+            const retryAfter = response.headers.get("retry-after");
+
+            /*
+             * Primary rate limit:
+             *
+             * x-ratelimit-remaining = 0
+             *
+             * Secondary rate limit:
+             *
+             * normalmente pode fornecer Retry-After.
+             */
+
+            if (remaining === "0" || retryAfter !== null) {
+                throw new Error("GITHUB_RATE_LIMIT");
+            }
+
+            throw new Error("GITHUB_FORBIDDEN");
         }
 
         if (!response.ok) {

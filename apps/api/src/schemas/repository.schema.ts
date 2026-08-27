@@ -2,15 +2,6 @@
  * =========================================================
  * REPOSITORY PARAMS
  * =========================================================
- *
- * GitHub aceita nomes de owner/repository
- * compostos principalmente por:
- *
- * letras
- * números
- * hífen
- * underscore
- * ponto
  */
 
 export const repositoryParamsSchema = {
@@ -28,14 +19,6 @@ export const repositoryParamsSchema = {
 
             maxLength: 100,
 
-            /*
-             * Impede valores obviamente
-             * inválidos como:
-             *
-             * !!!
-             * espaço
-             * ../
-             */
             pattern: "^[A-Za-z0-9_.-]+$",
         },
 
@@ -53,17 +36,79 @@ export const repositoryParamsSchema = {
 
 /*
  * =========================================================
+ * REFRESH QUERY
+ * =========================================================
+ *
+ * Usado no Repository Overview.
+ *
+ * Exemplos:
+ *
+ * ?refresh=true
+ * ?refresh=false
+ */
+
+export const refreshQuerySchema = {
+    type: "object",
+
+    additionalProperties: false,
+
+    properties: {
+        refresh: {
+            type: "boolean",
+
+            default: false,
+        },
+    },
+} as const;
+
+/*
+ * =========================================================
  * ANALYTICS QUERY
  * =========================================================
  *
- * O DevPulse suporta somente:
+ * Analytics aceita:
  *
- * 7 dias
- * 30 dias
- * 90 dias
+ * ?days=7
+ * ?days=30
+ * ?days=90
+ *
+ * e:
+ *
+ * ?refresh=true
  */
 
 export const analyticsQuerySchema = {
+    type: "object",
+
+    additionalProperties: false,
+
+    properties: {
+        days: {
+            type: "integer",
+
+            enum: [7, 30, 90],
+
+            default: 30,
+        },
+
+        refresh: {
+            type: "boolean",
+
+            default: false,
+        },
+    },
+} as const;
+
+/*
+ * =========================================================
+ * ANALYZE QUERY
+ * =========================================================
+ *
+ * O endpoint de snapshot não precisa de
+ * refresh.
+ */
+
+export const analyzeQuerySchema = {
     type: "object",
 
     additionalProperties: false,
@@ -83,12 +128,6 @@ export const analyticsQuerySchema = {
  * =========================================================
  * HISTORY QUERY
  * =========================================================
- *
- * Histórico pode ser solicitado sem
- * days.
- *
- * Nesse caso o backend pode retornar
- * snapshots de diferentes períodos.
  */
 
 export const historyQuerySchema = {
@@ -113,6 +152,8 @@ export const historyQuerySchema = {
 
 export const repositoryRouteSchema = {
     params: repositoryParamsSchema,
+
+    querystring: refreshQuerySchema,
 } as const;
 
 export const analyticsRouteSchema = {
@@ -124,7 +165,7 @@ export const analyticsRouteSchema = {
 export const analyzeRouteSchema = {
     params: repositoryParamsSchema,
 
-    querystring: analyticsQuerySchema,
+    querystring: analyzeQuerySchema,
 } as const;
 
 export const historyRouteSchema = {

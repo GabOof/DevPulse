@@ -3,31 +3,27 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
     test: {
         /*
-         * Executa somente os testes
-         * TypeScript que estão dentro
-         * de src/.
-         *
-         * Isso evita executar novamente
-         * os .test.js gerados em dist/.
+         * Executamos somente testes
+         * TypeScript de src.
          */
+
         include: ["src/**/*.test.ts"],
+
+        /*
+         * Setup executado antes de cada
+         * arquivo/suíte.
+         */
+
+        setupFiles: ["src/test/setup.ts"],
 
         environment: "node",
 
         coverage: {
             provider: "v8",
 
-            /*
-             * Código que queremos
-             * considerar na cobertura.
-             */
             include: ["src/**/*.ts"],
 
-            /*
-             * Arquivos que não fazem
-             * sentido entrar no cálculo.
-             */
-            exclude: ["src/**/*.test.ts", "src/generated/**", "src/server.ts"],
+            exclude: ["src/**/*.test.ts", "src/test/**", "src/generated/**", "src/server.ts"],
         },
     },
 });

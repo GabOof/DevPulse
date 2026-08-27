@@ -1,32 +1,58 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { AuthContextService } from "../services/auth-context.service.js";
-import { GitHubService } from "../services/github.service.js";
+
+import { cachedGitHubService } from "../services/cached-github.service.js";
 
 const authContextService = new AuthContextService();
 
+/*
+ * =========================================================
+ * TYPES
+ * =========================================================
+ */
+
 interface AnalyticsParams {
     owner: string;
+
     repo: string;
 }
 
 interface AnalyticsQuery {
-    days?: string;
+    days?: number;
+
+    refresh?: boolean;
 }
 
-const githubService = new GitHubService();
+/*
+ * =========================================================
+ * CONTROLLER
+ * =========================================================
+ */
 
 export class AnalyticsController {
     async show(
         request: FastifyRequest<{
             Params: AnalyticsParams;
+
             Querystring: AnalyticsQuery;
         }>,
+
         reply: FastifyReply
     ) {
         const { owner, repo } = request.params;
 
+        /*
+         * O JSON Schema já garante que
+         * será 7, 30 ou 90.
+         *
+         * Mantemos a validação abaixo
+         * como defesa adicional.
+         */
+
         const days = Number(request.query.days ?? 30);
+
+        const forceRefresh = request.query.refresh ?? false;
 
         const allowedPeriods = [7, 30, 90];
 
@@ -41,14 +67,33 @@ export class AnalyticsController {
         try {
             const auth = await authContextService.resolveGitHubContext(request);
 
-            const analytics = await githubService.getRepositoryAnalytics(
+            const result = await cachedGitHubService.getRepositoryAnalytics(
                 owner,
+
                 repo,
+
                 days,
-                auth?.accessToken
+
+                auth?.accessToken,
+
+                {
+                    forceRefresh,
+                }
             );
 
-            return reply.send(analytics);
+            reply.header(
+                "X-DevPulse-Cache",
+
+                result.status
+            );
+
+            reply.header(
+                "Cache-Control",
+
+                "no-store"
+            );
+
+            return reply.send(result.value);
         } catch (error) {
             if (error instanceof Error) {
                 if (error.message === "REPOSITORY_NOT_FOUND") {
