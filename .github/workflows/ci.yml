@@ -1,0 +1,196 @@
+name: DevPulse CI
+
+on:
+    push:
+        branches:
+            - main
+
+    pull_request:
+        branches:
+            - main
+
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    # ========================================================
+    # API
+    # ========================================================
+
+    api:
+        name: API - Build and Tests
+
+        runs-on: ubuntu-latest
+
+        timeout-minutes: 10
+
+        env:
+            DATABASE_URL: postgresql://devpulse:devpulse@localhost:5432/devpulse
+
+            FRONTEND_URL: http://localhost:5173
+
+            SESSION_COOKIE_NAME: devpulse_session
+
+            AUTH_ENCRYPTION_KEY: "1111111111111111111111111111111111111111111111111111111111111111"
+
+            GITHUB_CLIENT_ID: test-client-id
+
+            GITHUB_CLIENT_SECRET: test-client-secret
+
+            GITHUB_CALLBACK_URL: http://localhost:3333/api/auth/github/callback
+
+            RATE_LIMIT_MAX: 1000
+
+        steps:
+            # ----------------------------------------------------
+            # CHECKOUT
+            # ----------------------------------------------------
+
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            # ----------------------------------------------------
+            # NODE
+            # ----------------------------------------------------
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v7
+
+              with:
+                  node-version: "24"
+
+                  cache: npm
+
+                  cache-dependency-path: apps/api/package-lock.json
+
+            # ----------------------------------------------------
+            # INSTALL
+            # ----------------------------------------------------
+
+            - name: Install API dependencies
+              working-directory: apps/api
+
+              run: npm ci
+
+            # ----------------------------------------------------
+            # PRISMA
+            # ----------------------------------------------------
+
+            - name: Generate Prisma Client
+              working-directory: apps/api
+
+              run: npx prisma generate
+
+            # ----------------------------------------------------
+            # BUILD
+            # ----------------------------------------------------
+
+            - name: Build API
+              working-directory: apps/api
+
+              run: npm run build
+
+            # ----------------------------------------------------
+            # TESTS
+            # ----------------------------------------------------
+
+            - name: Run API tests
+              working-directory: apps/api
+
+              run: npm run test:run
+
+            # ----------------------------------------------------
+            # COVERAGE
+            # ----------------------------------------------------
+
+            - name: Generate test coverage
+              working-directory: apps/api
+
+              run: npm run test:coverage
+
+            # ----------------------------------------------------
+            # COVERAGE ARTIFACT
+            # ----------------------------------------------------
+
+            - name: Upload coverage report
+              if: always()
+
+              uses: actions/upload-artifact@v7
+
+              with:
+                  name: api-coverage
+
+                  path: apps/api/coverage
+
+                  if-no-files-found: ignore
+
+                  retention-days: 7
+
+    # ========================================================
+    # FRONTEND
+    # ========================================================
+
+    web:
+        name: Web - Build
+
+        runs-on: ubuntu-latest
+
+        timeout-minutes: 10
+
+        env:
+            VITE_API_URL: http://localhost:3333
+
+        steps:
+            # ----------------------------------------------------
+            # CHECKOUT
+            # ----------------------------------------------------
+
+            - name: Checkout repository
+              uses: actions/checkout@v6
+
+            # ----------------------------------------------------
+            # NODE
+            # ----------------------------------------------------
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v7
+
+              with:
+                  node-version: "24"
+
+                  cache: npm
+
+                  cache-dependency-path: apps/web/package-lock.json
+
+            # ----------------------------------------------------
+            # INSTALL
+            # ----------------------------------------------------
+
+            - name: Install frontend dependencies
+              working-directory: apps/web
+
+              run: npm ci
+
+            # ----------------------------------------------------
+            # LINT
+            # ----------------------------------------------------
+
+            - name: Run frontend lint
+              working-directory: apps/web
+
+              run: npm run lint --if-present
+
+            # ----------------------------------------------------
+            # BUILD
+            # ----------------------------------------------------
+
+            - name: Build frontend
+              working-directory: apps/web
+
+              run: npm run build
