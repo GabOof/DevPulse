@@ -363,13 +363,13 @@ describe("GitHub API Integration", () => {
 
             const options = fetchMock.mock.calls[0][1] as RequestInit | undefined;
 
-            const headers = options?.headers as Record<string, string> | undefined;
+            const headers = new Headers(options?.headers);
 
-            expect(headers?.Accept).toBe("application/vnd.github+json");
+            expect(headers.get("Accept")).toBe("application/vnd.github+json");
 
-            expect(headers?.["X-GitHub-Api-Version"]).toBe("2026-03-10");
+            expect(headers.get("X-GitHub-Api-Version")).toBe("2026-03-10");
 
-            expect(headers?.["User-Agent"]).toBe("DevPulse");
+            expect(headers.get("User-Agent")).toBe("DevPulse");
         });
 
         it("não deve enviar Authorization em requisição anônima", async () => {
