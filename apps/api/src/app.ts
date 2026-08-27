@@ -13,6 +13,8 @@ import { authRoutes } from "./routes/auth.routes.js";
 
 import { registerErrorHandler } from "./plugins/error-handler.js";
 
+import { DEVPULSE_EXPOSED_HEADERS } from "./http/github-response-meta.js";
+
 /*
  * =========================================================
  * BUILD APP OPTIONS
@@ -115,6 +117,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
 
         credentials: true,
+
+        exposedHeaders: DEVPULSE_EXPOSED_HEADERS,
     });
 
     /*
