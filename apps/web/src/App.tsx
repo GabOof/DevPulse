@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 import "./App.css";
 
 import { AnalyticsDashboard } from "./components/AnalyticsDashboard";
+
+import { ApiStatusPanel } from "./components/ApiStatusPanel";
+
 import { RepositoryCard } from "./components/RepositoryCard";
+
 import { SearchRepositoryForm } from "./components/SearchRepositoryForm";
 
 import {
@@ -11,6 +15,7 @@ import {
     getRepositoryAnalytics,
     getRepositoryHistory,
     saveRepositoryAnalysis,
+    type ApiResponseMeta,
 } from "./services/api";
 
 import { getCurrentUser, getGitHubLoginUrl, logout } from "./services/auth";
@@ -21,22 +26,34 @@ import type { Repository } from "./types/repository";
 
 import type { AuthUser } from "./types/auth";
 
+/*
+ * =========================================================
+ * TYPES
+ * =========================================================
+ */
+
 interface SelectedRepository {
     owner: string;
+
     repo: string;
 }
 
 const INITIAL_PERIOD: AnalyticsPeriod = 30;
 
 /*
+ * =========================================================
+ * REPOSITORY INPUT PARSER
+ * =========================================================
+ *
  * Permite pesquisar usando:
  *
- * GabOof/ouroguel
+ * GabOof/DevPulse
  *
  * ou:
  *
- * https://github.com/GabOof/ouroguel
+ * https://github.com/GabOof/DevPulse
  */
+
 function parseRepositoryInput(input: string): SelectedRepository | null {
     const value = input.trim();
 
@@ -45,8 +62,11 @@ function parseRepositoryInput(input: string): SelectedRepository | null {
     }
 
     /*
-     * URL completa do GitHub.
+     * =====================================================
+     * URL COMPLETA DO GITHUB
+     * =====================================================
      */
+
     if (value.startsWith("https://github.com/") || value.startsWith("http://github.com/")) {
         try {
             const url = new URL(value);
@@ -59,6 +79,7 @@ function parseRepositoryInput(input: string): SelectedRepository | null {
 
             return {
                 owner: parts[0],
+
                 repo: parts[1].replace(/\.git$/, ""),
             };
         } catch {
@@ -67,8 +88,11 @@ function parseRepositoryInput(input: string): SelectedRepository | null {
     }
 
     /*
-     * Formato owner/repository.
+     * =====================================================
+     * OWNER/REPOSITORY
+     * =====================================================
      */
+
     const parts = value.split("/").filter(Boolean);
 
     if (parts.length !== 2) {
@@ -77,15 +101,22 @@ function parseRepositoryInput(input: string): SelectedRepository | null {
 
     return {
         owner: parts[0],
+
         repo: parts[1].replace(/\.git$/, ""),
     };
 }
 
+/*
+ * =========================================================
+ * APP
+ * =========================================================
+ */
+
 function App() {
     /*
-     * ============================
+     * =====================================================
      * AUTENTICAÇÃO
-     * ============================
+     * =====================================================
      */
 
     const [user, setUser] = useState<AuthUser | null>(null);
@@ -93,9 +124,9 @@ function App() {
     const [authLoading, setAuthLoading] = useState(true);
 
     /*
-     * ============================
+     * =====================================================
      * REPOSITÓRIO
-     * ============================
+     * =====================================================
      */
 
     const [repository, setRepository] = useState<Repository | null>(null);
@@ -103,9 +134,9 @@ function App() {
     const [selectedRepository, setSelectedRepository] = useState<SelectedRepository | null>(null);
 
     /*
-     * ============================
+     * =====================================================
      * ANALYTICS
-     * ============================
+     * =====================================================
      */
 
     const [analytics, setAnalytics] = useState<RepositoryAnalytics | null>(null);
@@ -115,9 +146,42 @@ function App() {
     const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
     /*
-     * ============================
+     * =====================================================
+     * API / CACHE METADATA
+     * =====================================================
+     *
+     * repositoryMeta:
+     *
+     * - HIT
+     * - MISS
+     * - COALESCED
+     * - GitHub Rate Limit
+     *
+     * analyticsMeta:
+     *
+     * - HIT
+     * - MISS
+     * - COALESCED
+     * - GitHub Rate Limit
+     */
+
+    const [repositoryMeta, setRepositoryMeta] = useState<ApiResponseMeta | null>(null);
+
+    const [analyticsMeta, setAnalyticsMeta] = useState<ApiResponseMeta | null>(null);
+
+    /*
+     * Indica que o usuário clicou
+     * explicitamente em:
+     *
+     * Atualizar agora
+     */
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    /*
+     * =====================================================
      * HISTÓRICO
-     * ============================
+     * =====================================================
      */
 
     const [history, setHistory] = useState<AnalysisHistoryItem[]>([]);
@@ -129,9 +193,9 @@ function App() {
     const [snapshotMessage, setSnapshotMessage] = useState<string | null>(null);
 
     /*
-     * ============================
+     * =====================================================
      * ESTADO GERAL
-     * ============================
+     * =====================================================
      */
 
     const [loading, setLoading] = useState(false);
@@ -139,9 +203,9 @@ function App() {
     const [error, setError] = useState<string | null>(null);
 
     /*
-     * ============================
+     * =====================================================
      * RECUPERAR SESSÃO
-     * ============================
+     * =====================================================
      */
 
     useEffect(() => {
@@ -156,28 +220,39 @@ function App() {
                 }
             } catch {
                 /*
-                 * Falha ao verificar a sessão
-                 * não deve impedir o uso
-                 * público do DevPulse.
+                 * Falha ao verificar
+                 * a sessão não deve
+                 * impedir o uso público
+                 * do DevPulse.
                  */
+
                 setUser(null);
             } finally {
                 setAuthLoading(false);
 
                 /*
-                 * O callback OAuth retorna:
+                 * O callback OAuth
+                 * retorna:
                  *
                  * /?auth=success
                  *
-                 * Depois de verificarmos a
-                 * sessão, removemos o parâmetro.
+                 * Depois de verificarmos
+                 * a sessão, removemos o
+                 * parâmetro.
                  */
+
                 const url = new URL(window.location.href);
 
                 if (url.searchParams.has("auth")) {
                     url.searchParams.delete("auth");
 
-                    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+                    window.history.replaceState(
+                        {},
+
+                        "",
+
+                        `${url.pathname}${url.search}${url.hash}`
+                    );
                 }
             }
         }
@@ -186,9 +261,9 @@ function App() {
     }, []);
 
     /*
-     * ============================
+     * =====================================================
      * LOGIN
-     * ============================
+     * =====================================================
      */
 
     function handleLogin() {
@@ -196,9 +271,9 @@ function App() {
     }
 
     /*
-     * ============================
+     * =====================================================
      * LOGOUT
-     * ============================
+     * =====================================================
      */
 
     async function handleLogout() {
@@ -210,12 +285,23 @@ function App() {
             setUser(null);
 
             /*
-             * Histórico pertence ao usuário,
-             * então limpamos ao sair.
+             * Histórico pertence ao
+             * usuário autenticado.
              */
+
             setHistory([]);
 
             setSnapshotMessage(null);
+
+            /*
+             * Limpamos metadados porque
+             * caches públicos e autenticados
+             * possuem scopes diferentes.
+             */
+
+            setRepositoryMeta(null);
+
+            setAnalyticsMeta(null);
         } catch (logoutError) {
             if (logoutError instanceof Error) {
                 setError(logoutError.message);
@@ -226,9 +312,9 @@ function App() {
     }
 
     /*
-     * ============================
+     * =====================================================
      * BUSCAR REPOSITÓRIO
-     * ============================
+     * =====================================================
      */
 
     async function handleSearch(repositoryInput: string) {
@@ -253,12 +339,22 @@ function App() {
 
             setSnapshotMessage(null);
 
+            /*
+             * Limpamos dados da pesquisa
+             * anterior.
+             */
+
             setHistory([]);
+
+            setRepositoryMeta(null);
+
+            setAnalyticsMeta(null);
 
             /*
              * Toda nova busca começa
              * novamente em 30 dias.
              */
+
             const initialPeriod = INITIAL_PERIOD;
 
             setPeriod(initialPeriod);
@@ -270,6 +366,7 @@ function App() {
              * Visitantes não fazem chamada
              * ao endpoint protegido.
              */
+
             const historyRequest = user
                 ? getRepositoryHistory(owner, repo, initialPeriod)
                 : Promise.resolve({
@@ -279,12 +376,14 @@ function App() {
                   });
 
             /*
-             * Overview, analytics e
-             * histórico são independentes.
+             * Repository Overview,
+             * Analytics e History são
+             * independentes.
              *
-             * Executamos concorrentemente.
+             * Executamos em paralelo.
              */
-            const [repositoryData, analyticsData, historyData] = await Promise.all([
+
+            const [repositoryResponse, analyticsResponse, historyData] = await Promise.all([
                 getRepository(owner, repo),
 
                 getRepositoryAnalytics(owner, repo, initialPeriod),
@@ -292,22 +391,52 @@ function App() {
                 historyRequest,
             ]);
 
+            /*
+             * Salva o repositório atual
+             * para trocas de período,
+             * snapshots e refresh.
+             */
+
             setSelectedRepository({
                 owner,
                 repo,
             });
 
-            setRepository(repositoryData);
+            /*
+             * =================================================
+             * REPOSITORY
+             * =================================================
+             */
 
-            setAnalytics(analyticsData);
+            setRepository(repositoryResponse.data);
+
+            setRepositoryMeta(repositoryResponse.meta);
+
+            /*
+             * =================================================
+             * ANALYTICS
+             * =================================================
+             */
+
+            setAnalytics(analyticsResponse.data);
+
+            setAnalyticsMeta(analyticsResponse.meta);
+
+            /*
+             * =================================================
+             * HISTORY
+             * =================================================
+             */
 
             setHistory(historyData.history);
         } catch (searchError) {
             /*
-             * Limpamos dados antigos para
-             * não mostrar outro repositório
-             * junto com a mensagem de erro.
+             * Limpamos dados antigos
+             * para não mostrar outro
+             * repositório junto com a
+             * mensagem de erro.
              */
+
             setRepository(null);
 
             setAnalytics(null);
@@ -315,6 +444,10 @@ function App() {
             setHistory([]);
 
             setSelectedRepository(null);
+
+            setRepositoryMeta(null);
+
+            setAnalyticsMeta(null);
 
             if (searchError instanceof Error) {
                 setError(searchError.message);
@@ -331,9 +464,9 @@ function App() {
     }
 
     /*
-     * ============================
+     * =====================================================
      * ALTERAR PERÍODO
-     * ============================
+     * =====================================================
      */
 
     async function handlePeriodChange(newPeriod: AnalyticsPeriod) {
@@ -342,10 +475,11 @@ function App() {
         }
 
         /*
-         * Não precisamos refazer
-         * a requisição se o usuário
-         * clicar no período atual.
+         * Não precisamos refazer a
+         * requisição se o usuário clicar
+         * no período atual.
          */
+
         if (newPeriod === period) {
             return;
         }
@@ -361,6 +495,10 @@ function App() {
 
             setSnapshotMessage(null);
 
+            /*
+             * Histórico é privado.
+             */
+
             const historyRequest = user
                 ? getRepositoryHistory(owner, repo, newPeriod)
                 : Promise.resolve({
@@ -369,13 +507,20 @@ function App() {
                       history: [],
                   });
 
-            const [analyticsData, historyData] = await Promise.all([
+            /*
+             * Analytics e histórico podem
+             * ser atualizados em paralelo.
+             */
+
+            const [analyticsResponse, historyData] = await Promise.all([
                 getRepositoryAnalytics(owner, repo, newPeriod),
 
                 historyRequest,
             ]);
 
-            setAnalytics(analyticsData);
+            setAnalytics(analyticsResponse.data);
+
+            setAnalyticsMeta(analyticsResponse.meta);
 
             setHistory(historyData.history);
 
@@ -394,9 +539,88 @@ function App() {
     }
 
     /*
-     * ============================
+     * =====================================================
+     * ATUALIZAÇÃO FORÇADA
+     * =====================================================
+     *
+     * Ignora o TTL do DevPulse:
+     *
+     * ?refresh=true
+     *
+     * Porém o GitHubService continua
+     * utilizando:
+     *
+     * ETag
+     * If-None-Match
+     *
+     * Portanto o GitHub ainda pode
+     * responder 304 Not Modified.
+     */
+
+    async function handleRefresh() {
+        if (!selectedRepository) {
+            return;
+        }
+
+        const { owner, repo } = selectedRepository;
+
+        try {
+            setRefreshing(true);
+
+            setAnalyticsLoading(true);
+
+            setError(null);
+
+            setSnapshotMessage(null);
+
+            /*
+             * Repository e Analytics podem
+             * ser revalidados em paralelo.
+             */
+
+            const [repositoryResponse, analyticsResponse] = await Promise.all([
+                getRepository(owner, repo, {
+                    refresh: true,
+                }),
+
+                getRepositoryAnalytics(owner, repo, period, {
+                    refresh: true,
+                }),
+            ]);
+
+            /*
+             * Atualiza os dados apresentados.
+             */
+
+            setRepository(repositoryResponse.data);
+
+            setAnalytics(analyticsResponse.data);
+
+            /*
+             * Atualiza status do cache
+             * e rate limit.
+             */
+
+            setRepositoryMeta(repositoryResponse.meta);
+
+            setAnalyticsMeta(analyticsResponse.meta);
+        } catch (refreshError) {
+            if (refreshError instanceof Error) {
+                setError(refreshError.message);
+            } else {
+                setError("Não foi possível atualizar os dados.");
+            }
+        } finally {
+            setRefreshing(false);
+
+            setAnalyticsLoading(false);
+        }
+    }
+
+    /*
+     * =====================================================
      * SALVAR SNAPSHOT
-     * ============================
+     * =====================================================
      */
 
     async function handleSaveSnapshot() {
@@ -427,6 +651,7 @@ function App() {
              * dados possivelmente antigos
              * existentes no navegador.
              */
+
             await saveRepositoryAnalysis(owner, repo, period);
 
             /*
@@ -434,6 +659,7 @@ function App() {
              * novamente o histórico para
              * atualizar Project Evolution.
              */
+
             const historyData = await getRepositoryHistory(owner, repo, period);
 
             setHistory(historyData.history);
@@ -451,13 +677,17 @@ function App() {
     }
 
     /*
-     * ============================
+     * =====================================================
      * INTERFACE
-     * ============================
+     * =====================================================
      */
 
     return (
         <div className="app">
+            {/* ==========================================
+                HEADER
+            ========================================== */}
+
             <header className="app-header">
                 <div className="brand">
                     <div className="brand-mark">DP</div>
@@ -470,7 +700,7 @@ function App() {
                 </div>
 
                 <div className="header-actions">
-                    <span className="version">v0.7</span>
+                    <span className="version">v0.9</span>
 
                     {authLoading ? (
                         <span className="auth-loading">Verificando sessão...</span>
@@ -498,7 +728,15 @@ function App() {
                 </div>
             </header>
 
+            {/* ==========================================
+                MAIN
+            ========================================== */}
+
             <main className="app-main">
+                {/* ======================================
+                    HERO / SEARCH
+                ====================================== */}
+
                 <section className="hero">
                     <span className="hero-eyebrow">GitHub Repository Analytics</span>
 
@@ -512,13 +750,38 @@ function App() {
                     <SearchRepositoryForm onSearch={handleSearch} loading={loading} />
                 </section>
 
+                {/* ======================================
+                    ERROR
+                ====================================== */}
+
                 {error && (
                     <div className="error-message" role="alert">
                         {error}
                     </div>
                 )}
 
+                {/* ======================================
+                    REPOSITORY OVERVIEW
+                ====================================== */}
+
                 {repository && <RepositoryCard repository={repository} />}
+
+                {/* ======================================
+                    CACHE / GITHUB API STATUS
+                ====================================== */}
+
+                {repository && analytics && (
+                    <ApiStatusPanel
+                        repositoryMeta={repositoryMeta}
+                        analyticsMeta={analyticsMeta}
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                    />
+                )}
+
+                {/* ======================================
+                    ANALYTICS
+                ====================================== */}
 
                 {analytics && (
                     <AnalyticsDashboard
@@ -535,6 +798,10 @@ function App() {
                     />
                 )}
             </main>
+
+            {/* ==========================================
+                FOOTER
+            ========================================== */}
 
             <footer className="app-footer">
                 <span>DevPulse</span>
