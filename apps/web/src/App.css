@@ -2362,3 +2362,263 @@
         gap: 5px;
     }
 }
+
+/* ==========================================
+   API / CACHE STATUS
+========================================== */
+
+.api-status-panel {
+    margin-top: 22px;
+    padding: 24px;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+
+    background: var(--surface);
+
+    box-shadow: 0 12px 35px rgb(0 0 0 / 12%);
+}
+
+.api-status-main {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 24px;
+
+    margin-bottom: 22px;
+}
+
+.api-status-main h3 {
+    margin: 4px 0 6px;
+
+    color: var(--text);
+
+    font-size: 1.05rem;
+}
+
+.api-status-main p {
+    margin: 0;
+
+    color: var(--text-muted);
+
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+.refresh-data-button {
+    flex-shrink: 0;
+
+    min-height: 38px;
+
+    padding: 0 14px;
+
+    border: 1px solid var(--accent-border);
+    border-radius: 9px;
+
+    background: var(--accent-soft);
+
+    color: #8eafff;
+
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.2s,
+        background 0.2s,
+        transform 0.15s;
+}
+
+.refresh-data-button:hover:not(:disabled) {
+    border-color: var(--accent);
+
+    background: rgb(91 140 255 / 18%);
+}
+
+.refresh-data-button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.refresh-data-button:disabled {
+    opacity: 0.55;
+
+    cursor: wait;
+}
+
+.api-status-grid {
+    display: grid;
+
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+
+    overflow: hidden;
+
+    border: 1px solid var(--border-soft);
+    border-radius: 11px;
+
+    background: var(--bg-soft);
+}
+
+.api-status-item {
+    min-width: 0;
+
+    padding: 17px 18px;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 5px;
+
+    border-right: 1px solid var(--border-soft);
+}
+
+.api-status-item:last-child {
+    border-right: 0;
+}
+
+.api-status-item > span {
+    color: var(--text-muted);
+
+    font-size: 0.62rem;
+    font-weight: 700;
+
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.api-status-item > strong {
+    overflow: hidden;
+
+    color: var(--text);
+
+    font-size: 0.93rem;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.api-status-item > small {
+    color: var(--text-faint);
+
+    font-size: 0.63rem;
+}
+
+.api-status-date {
+    font-size: 0.76rem !important;
+}
+
+.rate-limit-value.healthy {
+    color: var(--green);
+}
+
+.rate-limit-value.warning {
+    color: var(--yellow);
+}
+
+.rate-limit-value.critical {
+    color: var(--red);
+}
+
+.rate-limit-progress {
+    margin-top: 18px;
+}
+
+.rate-limit-progress-header {
+    margin-bottom: 7px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    color: var(--text-muted);
+
+    font-size: 0.66rem;
+}
+
+.rate-limit-progress-header strong {
+    color: var(--text-secondary);
+}
+
+.rate-limit-track {
+    height: 5px;
+
+    overflow: hidden;
+
+    border-radius: 999px;
+
+    background: var(--border-soft);
+}
+
+.rate-limit-fill {
+    height: 100%;
+
+    border-radius: inherit;
+
+    background: var(--text-muted);
+
+    transition: width 0.3s ease;
+}
+
+.rate-limit-fill.healthy {
+    background: var(--green);
+}
+
+.rate-limit-fill.warning {
+    background: var(--yellow);
+}
+
+.rate-limit-fill.critical {
+    background: var(--red);
+}
+
+.api-status-observed {
+    margin: 12px 0 0;
+
+    color: var(--text-faint);
+
+    font-size: 0.62rem;
+}
+
+/* ==========================================
+   API STATUS RESPONSIVE
+========================================== */
+
+@media (max-width: 800px) {
+    .api-status-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .api-status-item:nth-child(2) {
+        border-right: 0;
+    }
+
+    .api-status-item:nth-child(-n + 2) {
+        border-bottom: 1px solid var(--border-soft);
+    }
+}
+
+@media (max-width: 560px) {
+    .api-status-main {
+        flex-direction: column;
+    }
+
+    .refresh-data-button {
+        width: 100%;
+    }
+
+    .api-status-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .api-status-item {
+        border-right: 0;
+
+        border-bottom: 1px solid var(--border-soft);
+    }
+
+    .api-status-item:last-child {
+        border-bottom: 0;
+    }
+}
