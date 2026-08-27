@@ -2,11 +2,21 @@ import { timingSafeEqual } from "node:crypto";
 
 import type { FastifyReply, FastifyRequest } from "fastify";
 
+import { env, isProduction } from "../config/env.js";
+
 import { EncryptionService } from "../services/encryption.service.js";
+
 import { GitHubAuthService } from "../services/github-auth.service.js";
+
 import { SessionService } from "../services/session.service.js";
 
 import type { OAuthTransaction } from "../types/auth.js";
+
+/*
+ * =========================================================
+ * SERVICES
+ * =========================================================
+ */
 
 const githubAuthService = new GitHubAuthService();
 
@@ -14,9 +24,21 @@ const sessionService = new SessionService();
 
 const encryptionService = new EncryptionService();
 
+/*
+ * =========================================================
+ * OAUTH CONFIGURATION
+ * =========================================================
+ */
+
 const OAUTH_COOKIE_NAME = "devpulse_oauth";
 
 const OAUTH_TTL_SECONDS = 10 * 60;
+
+/*
+ * =========================================================
+ * TYPES
+ * =========================================================
+ */
 
 interface CallbackQuery {
     code?: string;
@@ -28,19 +50,69 @@ interface CallbackQuery {
     error_description?: string;
 }
 
-function getSessionCookieName() {
-    return process.env.SESSION_COOKIE_NAME ?? "devpulse_session";
+/*
+ * =========================================================
+ * COOKIE HELPERS
+ * =========================================================
+ */
+
+function getSessionCookieName(): string {
+    return env.auth.sessionCookieName;
 }
 
-function getFrontendUrl() {
-    return process.env.FRONTEND_URL ?? "http://localhost:5173";
+/*
+ * Cookie temporário utilizado apenas
+ * durante o fluxo OAuth.
+ */
+
+function getOAuthCookieOptions() {
+    return {
+        path: "/api/auth/github",
+
+        httpOnly: true,
+
+        sameSite: "lax" as const,
+
+        secure: isProduction(),
+
+        maxAge: OAUTH_TTL_SECONDS,
+    };
 }
 
-function isProduction() {
-    return process.env.NODE_ENV === "production";
+/*
+ * Cookie responsável pela sessão
+ * autenticada do usuário.
+ */
+
+function getSessionCookieOptions(expires: Date) {
+    return {
+        path: "/",
+
+        httpOnly: true,
+
+        sameSite: "lax" as const,
+
+        secure: isProduction(),
+
+        expires,
+    };
 }
 
-function safeCompare(left: string, right: string): boolean {
+/*
+ * =========================================================
+ * SAFE STRING COMPARISON
+ * =========================================================
+ *
+ * Usamos timingSafeEqual para comparar
+ * o state OAuth e reduzir diferenças
+ * temporais observáveis.
+ */
+
+function safeCompare(
+    left: string,
+
+    right: string
+): boolean {
     const leftBuffer = Buffer.from(left);
 
     const rightBuffer = Buffer.from(right);
@@ -52,8 +124,35 @@ function safeCompare(left: string, right: string): boolean {
     return timingSafeEqual(leftBuffer, rightBuffer);
 }
 
+/*
+ * =========================================================
+ * AUTH CONTROLLER
+ * =========================================================
+ */
+
 export class AuthController {
-    async github(_request: FastifyRequest, reply: FastifyReply) {
+    /*
+     * =====================================================
+     * GITHUB LOGIN
+     * =====================================================
+     *
+     * Inicia o fluxo OAuth.
+     *
+     * GitHubAuthService cria:
+     *
+     * - state;
+     * - PKCE code verifier;
+     * - authorization URL.
+     *
+     * A transação é criptografada antes
+     * de ser armazenada no cookie.
+     */
+
+    async github(
+        _request: FastifyRequest,
+
+        reply: FastifyReply
+    ) {
         const { state, codeVerifier, authorizationUrl } =
             githubAuthService.createAuthorizationRequest();
 
@@ -67,38 +166,59 @@ export class AuthController {
 
         const encryptedTransaction = encryptionService.encrypt(JSON.stringify(transaction));
 
-        reply.setCookie(OAUTH_COOKIE_NAME, encryptedTransaction, {
-            path: "/api/auth/github",
+        reply.setCookie(
+            OAUTH_COOKIE_NAME,
 
-            httpOnly: true,
+            encryptedTransaction,
 
-            sameSite: "lax",
-
-            secure: isProduction(),
-
-            maxAge: OAUTH_TTL_SECONDS,
-        });
+            getOAuthCookieOptions()
+        );
 
         return reply.redirect(authorizationUrl);
     }
+
+    /*
+     * =====================================================
+     * GITHUB CALLBACK
+     * =====================================================
+     */
 
     async callback(
         request: FastifyRequest<{
             Querystring: CallbackQuery;
         }>,
+
         reply: FastifyReply
     ) {
-        const frontendUrl = getFrontendUrl();
+        const frontendUrl = env.frontendUrl;
 
         const { code, state, error } = request.query;
+
+        /*
+         * =================================================
+         * GITHUB DENIED ACCESS
+         * =================================================
+         */
 
         if (error) {
             return reply.redirect(`${frontendUrl}/?auth=denied`);
         }
 
+        /*
+         * =================================================
+         * INVALID CALLBACK
+         * =================================================
+         */
+
         if (!code || !state) {
             return reply.redirect(`${frontendUrl}/?auth=invalid`);
         }
+
+        /*
+         * =================================================
+         * OAUTH TRANSACTION COOKIE
+         * =================================================
+         */
 
         const encryptedTransaction = request.cookies[OAUTH_COOKIE_NAME];
 
@@ -107,11 +227,32 @@ export class AuthController {
         }
 
         /*
-         * Cookie de transação é one-shot.
+         * Cookie OAuth é one-shot.
+         *
+         * Depois que o callback começa
+         * a ser processado, ele não deve
+         * ser reutilizado.
          */
-        reply.clearCookie(OAUTH_COOKIE_NAME, {
-            path: "/api/auth/github",
-        });
+
+        reply.clearCookie(
+            OAUTH_COOKIE_NAME,
+
+            {
+                path: "/api/auth/github",
+
+                httpOnly: true,
+
+                sameSite: "lax",
+
+                secure: isProduction(),
+            }
+        );
+
+        /*
+         * =================================================
+         * DECRYPT OAUTH TRANSACTION
+         * =================================================
+         */
 
         let transaction: OAuthTransaction;
 
@@ -123,34 +264,73 @@ export class AuthController {
             return reply.redirect(`${frontendUrl}/?auth=invalid`);
         }
 
+        /*
+         * =================================================
+         * TRANSACTION EXPIRATION
+         * =================================================
+         */
+
         if (transaction.expiresAt < Date.now()) {
             return reply.redirect(`${frontendUrl}/?auth=expired`);
         }
+
+        /*
+         * =================================================
+         * STATE VALIDATION
+         * =================================================
+         */
 
         if (!safeCompare(state, transaction.state)) {
             return reply.redirect(`${frontendUrl}/?auth=invalid_state`);
         }
 
+        /*
+         * =================================================
+         * EXCHANGE CODE
+         * =================================================
+         */
+
         try {
+            /*
+             * Troca authorization code
+             * por access token.
+             */
+
             const tokenData = await githubAuthService.exchangeCode(code, transaction.codeVerifier);
+
+            /*
+             * Consulta usuário autenticado
+             * no GitHub.
+             */
 
             const githubUser = await githubAuthService.getGitHubUser(tokenData.access_token);
 
+            /*
+             * Persiste usuário e credencial
+             * criptografada.
+             */
+
             const user = await githubAuthService.persistUserAndCredential(githubUser, tokenData);
+
+            /*
+             * Cria sessão própria do
+             * DevPulse.
+             */
 
             const session = await sessionService.create(user.id);
 
-            reply.setCookie(getSessionCookieName(), session.token, {
-                path: "/",
+            /*
+             * O token de sessão fica apenas
+             * em cookie HttpOnly.
+             */
 
-                httpOnly: true,
+            reply.setCookie(
+                getSessionCookieName(),
 
-                sameSite: "lax",
+                session.token,
 
-                secure: isProduction(),
-
-                expires: session.expiresAt,
-            });
+                getSessionCookieOptions(session.expiresAt)
+            );
 
             return reply.redirect(`${frontendUrl}/?auth=success`);
         } catch (error) {
@@ -160,8 +340,26 @@ export class AuthController {
         }
     }
 
-    async me(request: FastifyRequest, reply: FastifyReply) {
-        const token = request.cookies[getSessionCookieName()];
+    /*
+     * =====================================================
+     * CURRENT USER
+     * =====================================================
+     *
+     * GET /api/auth/me
+     */
+
+    async me(
+        request: FastifyRequest,
+
+        reply: FastifyReply
+    ) {
+        const cookieName = getSessionCookieName();
+
+        const token = request.cookies[cookieName];
+
+        /*
+         * Nenhuma sessão.
+         */
 
         if (!token) {
             return reply.status(401).send({
@@ -169,17 +367,40 @@ export class AuthController {
             });
         }
 
+        /*
+         * Verifica sessão no banco.
+         */
+
         const user = await sessionService.findUserByToken(token);
 
+        /*
+         * Cookie existe, mas sessão
+         * não existe ou expirou.
+         */
+
         if (!user) {
-            reply.clearCookie(getSessionCookieName(), {
-                path: "/",
-            });
+            reply.clearCookie(
+                cookieName,
+
+                {
+                    path: "/",
+
+                    httpOnly: true,
+
+                    sameSite: "lax",
+
+                    secure: isProduction(),
+                }
+            );
 
             return reply.status(401).send({
                 authenticated: false,
             });
         }
+
+        /*
+         * Usuário autenticado.
+         */
 
         return reply.send({
             authenticated: true,
@@ -200,18 +421,48 @@ export class AuthController {
         });
     }
 
-    async logout(request: FastifyRequest, reply: FastifyReply) {
+    /*
+     * =====================================================
+     * LOGOUT
+     * =====================================================
+     *
+     * POST /api/auth/logout
+     */
+
+    async logout(
+        request: FastifyRequest,
+
+        reply: FastifyReply
+    ) {
         const cookieName = getSessionCookieName();
 
         const token = request.cookies[cookieName];
+
+        /*
+         * Revoga sessão no servidor.
+         */
 
         if (token) {
             await sessionService.revoke(token);
         }
 
-        reply.clearCookie(cookieName, {
-            path: "/",
-        });
+        /*
+         * Remove cookie do navegador.
+         */
+
+        reply.clearCookie(
+            cookieName,
+
+            {
+                path: "/",
+
+                httpOnly: true,
+
+                sameSite: "lax",
+
+                secure: isProduction(),
+            }
+        );
 
         return reply.send({
             message: "Logout realizado com sucesso.",

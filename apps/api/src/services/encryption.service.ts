@@ -1,29 +1,70 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
+import { env } from "../config/env.js";
+
+/*
+ * =========================================================
+ * ENCRYPTION CONFIGURATION
+ * =========================================================
+ */
+
 const ALGORITHM = "aes-256-gcm";
 
 const IV_LENGTH = 12;
+
+/*
+ * =========================================================
+ * ENCRYPTION SERVICE
+ * =========================================================
+ */
 
 export class EncryptionService {
     private readonly key: Buffer;
 
     constructor() {
-        const encryptionKey = process.env.AUTH_ENCRYPTION_KEY;
+        /*
+         * A validação da chave agora fica
+         * centralizada em env.ts.
+         *
+         * env.auth.encryptionKey garante:
+         *
+         * - variável configurada;
+         * - exatamente 64 caracteres hex;
+         * - equivalente a 32 bytes;
+         * - compatível com AES-256.
+         */
 
-        if (!encryptionKey) {
-            throw new Error("AUTH_ENCRYPTION_KEY não configurada.");
-        }
+        this.key = Buffer.from(
+            env.auth.encryptionKey,
 
-        const key = Buffer.from(encryptionKey, "hex");
-
-        if (key.length !== 32) {
-            throw new Error("AUTH_ENCRYPTION_KEY deve possuir 32 bytes.");
-        }
-
-        this.key = key;
+            "hex"
+        );
     }
 
+    /*
+     * =====================================================
+     * ENCRYPT
+     * =====================================================
+     *
+     * AES-256-GCM gera:
+     *
+     * IV
+     * +
+     * Authentication Tag
+     * +
+     * Ciphertext
+     *
+     * Resultado:
+     *
+     * iv.authTag.encrypted
+     */
+
     encrypt(value: string): string {
+        /*
+         * 12 bytes é o tamanho recomendado
+         * para IV em AES-GCM.
+         */
+
         const iv = randomBytes(IV_LENGTH);
 
         const cipher = createCipheriv(ALGORITHM, this.key, iv);
@@ -34,13 +75,30 @@ export class EncryptionService {
 
         return [
             iv.toString("base64"),
+
             authTag.toString("base64"),
+
             encrypted.toString("base64"),
         ].join(".");
     }
 
+    /*
+     * =====================================================
+     * DECRYPT
+     * =====================================================
+     */
+
     decrypt(value: string): string {
         const [ivEncoded, authTagEncoded, encryptedEncoded] = value.split(".");
+
+        /*
+         * O token criptografado sempre deve
+         * possuir exatamente as três partes:
+         *
+         * IV
+         * Authentication Tag
+         * Ciphertext
+         */
 
         if (!ivEncoded || !authTagEncoded || !encryptedEncoded) {
             throw new Error("TOKEN_ENCRYPTION_INVALID");
@@ -52,12 +110,38 @@ export class EncryptionService {
 
         const encrypted = Buffer.from(encryptedEncoded, "base64");
 
+        /*
+         * Proteção adicional.
+         *
+         * O IV usado pelo DevPulse deve
+         * possuir exatamente 12 bytes.
+         */
+
+        if (iv.length !== IV_LENGTH) {
+            throw new Error("TOKEN_ENCRYPTION_INVALID");
+        }
+
         const decipher = createDecipheriv(ALGORITHM, this.key, iv);
+
+        /*
+         * O GCM valida integridade e
+         * autenticidade através da auth tag.
+         */
 
         decipher.setAuthTag(authTag);
 
-        const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+        try {
+            const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
 
-        return decrypted.toString("utf8");
+            return decrypted.toString("utf8");
+        } catch {
+            /*
+             * Não propagamos detalhes
+             * criptográficos para camadas
+             * superiores.
+             */
+
+            throw new Error("TOKEN_ENCRYPTION_INVALID");
+        }
     }
 }
