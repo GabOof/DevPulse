@@ -4,6 +4,8 @@ import { AuthContextService } from "../services/auth-context.service.js";
 
 import { cachedGitHubService } from "../services/cached-github.service.js";
 
+import { applyGitHubMetaHeaders } from "../http/github-response-meta.js";
+
 const authContextService = new AuthContextService();
 
 /*
@@ -86,6 +88,8 @@ export class AnalyticsController {
 
                 result.status
             );
+
+            applyGitHubMetaHeaders(reply, auth?.accessToken);
 
             reply.header(
                 "Cache-Control",

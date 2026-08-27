@@ -4,6 +4,8 @@ import { AuthContextService } from "../services/auth-context.service.js";
 
 import { cachedGitHubService } from "../services/cached-github.service.js";
 
+import { applyGitHubMetaHeaders } from "../http/github-response-meta.js";
+
 const authContextService = new AuthContextService();
 
 /*
@@ -50,6 +52,8 @@ export class RepositoryController {
 
         const forceRefresh = request.query.refresh ?? false;
 
+        let auth: Awaited<ReturnType<typeof authContextService.resolveGitHubContext>> | undefined;
+
         try {
             /*
              * Usuário autenticado:
@@ -64,7 +68,7 @@ export class RepositoryController {
              * usaremos cache público.
              */
 
-            const auth = await authContextService.resolveGitHubContext(request);
+            auth = await authContextService.resolveGitHubContext(request);
 
             const result = await cachedGitHubService.getRepository(
                 owner,
@@ -89,6 +93,8 @@ export class RepositoryController {
 
                 result.status
             );
+
+            applyGitHubMetaHeaders(reply, auth?.accessToken);
 
             /*
              * Evitamos que proxies/browsers
@@ -118,6 +124,8 @@ export class RepositoryController {
                 }
 
                 if (error.message === "GITHUB_RATE_LIMIT") {
+                    applyGitHubMetaHeaders(reply, auth?.accessToken);
+
                     return reply.status(429).send({
                         error: "GitHub rate limit exceeded",
 
