@@ -1,8 +1,12 @@
 # DevPulse
 
-Plataforma Full Stack para análise de atividade, produtividade e evolução de projetos hospedados no GitHub.
+**GitHub Repository Intelligence Platform**
 
-O DevPulse coleta dados de repositórios públicos através da GitHub REST API e transforma essas informações em métricas sobre atividade de desenvolvimento, commits, tecnologias utilizadas, colaboração e evolução histórica do projeto.
+Plataforma Full Stack para análise de atividade, colaboração, padrões de desenvolvimento e evolução histórica de projetos hospedados no GitHub.
+
+O DevPulse transforma dados obtidos através da GitHub REST API em métricas e indicadores que ajudam a compreender como um repositório está evoluindo ao longo do tempo.
+
+A aplicação permite analisar repositórios públicos sem autenticação e, através do login com GitHub, acessar funcionalidades adicionais como análise de repositórios privados e armazenamento de snapshots históricos.
 
 ---
 
@@ -14,6 +18,7 @@ O DevPulse coleta dados de repositórios públicos através da GitHub REST API e
 - TypeScript
 - Vite
 - Recharts
+- CSS
 
 ### Backend
 
@@ -25,10 +30,24 @@ O DevPulse coleta dados de repositórios públicos através da GitHub REST API e
 
 - PostgreSQL
 - Prisma ORM
+- `@prisma/adapter-pg`
 
-### Integrações
+### Autenticação
+
+- GitHub OAuth
+- PKCE
+- sessões server-side
+- cookies HttpOnly
+- AES-256-GCM para proteção de tokens armazenados
+
+### Integração
 
 - GitHub REST API
+
+### Testes
+
+- Vitest
+- V8 Coverage
 
 ### Infraestrutura
 
@@ -39,7 +58,7 @@ O DevPulse coleta dados de repositórios públicos através da GitHub REST API e
 
 ## Requisitos
 
-Para executar o projeto localmente:
+Para executar o projeto localmente é necessário possuir:
 
 - Node.js
 - npm
@@ -49,31 +68,31 @@ Para executar o projeto localmente:
 
 ---
 
-## Configuração
+# Executando localmente
 
-Clone o repositório:
+## 1. Clone o repositório
 
 ```bash
-git clone https://github.com/SEU-USUARIO/devpulse.git
+git clone https://github.com/GabOof/DevPulse.git
 ```
 
-Entre no projeto:
+Entre no diretório:
 
 ```bash
-cd devpulse
+cd DevPulse
 ```
 
 ---
 
-## Banco de dados
+## 2. Banco de dados
 
-Suba o PostgreSQL:
+O PostgreSQL pode ser iniciado através do Docker Compose:
 
 ```bash
 docker compose up -d
 ```
 
-Confira:
+Confira os containers:
 
 ```bash
 docker compose ps
@@ -81,9 +100,9 @@ docker compose ps
 
 ---
 
-## Backend
+# Backend
 
-Entre na API:
+Entre no diretório da API:
 
 ```bash
 cd apps/api
@@ -95,18 +114,102 @@ Instale as dependências:
 npm install
 ```
 
-Crie seu arquivo de ambiente:
+Crie o arquivo de ambiente:
 
 ```bash
 cp .env.example .env
 ```
 
-Configure:
+---
+
+## Variáveis de ambiente da API
+
+Exemplo de configuração local:
 
 ```env
-DATABASE_URL="postgresql://devpulse:devpulse@localhost:5432/devpulse"
+NODE_ENV=development
 
-GITHUB_API_TOKEN=
+HOST=0.0.0.0
+PORT=3333
+
+TRUST_PROXY=false
+
+DATABASE_URL=postgresql://devpulse:devpulse@localhost:5432/devpulse
+
+FRONTEND_URL=http://localhost:5173
+
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+GITHUB_CALLBACK_URL=http://localhost:3333/api/auth/github/callback
+
+SESSION_COOKIE_NAME=devpulse_session
+
+AUTH_ENCRYPTION_KEY=your-64-character-hexadecimal-key
+
+RATE_LIMIT_MAX=120
+
+CACHE_REPOSITORY_TTL_SECONDS=300
+CACHE_ANALYTICS_TTL_SECONDS=120
+```
+
+> Nunca utilize as credenciais reais do ambiente de produção no `.env.example` ou em arquivos versionados pelo Git.
+
+---
+
+## Gerando AUTH_ENCRYPTION_KEY
+
+A chave utilizada para criptografar tokens deve possuir **32 bytes**, representados por **64 caracteres hexadecimais**.
+
+Uma chave pode ser gerada com:
+
+```bash
+openssl rand -hex 32
+```
+
+Exemplo de formato:
+
+```text
+64 caracteres hexadecimais
+```
+
+A chave real não deve ser adicionada ao Git.
+
+Alterar essa chave em um ambiente existente também torna tokens anteriormente criptografados ilegíveis.
+
+---
+
+## GitHub OAuth App
+
+Para utilizar autenticação, crie uma OAuth App nas configurações de desenvolvedor do GitHub.
+
+Durante o desenvolvimento local, configure:
+
+```text
+Homepage URL:
+http://localhost:5173
+```
+
+```text
+Authorization callback URL:
+http://localhost:3333/api/auth/github/callback
+```
+
+Depois configure no `.env`:
+
+```env
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+GITHUB_CALLBACK_URL=http://localhost:3333/api/auth/github/callback
+```
+
+---
+
+## Prisma
+
+Gere o Prisma Client:
+
+```bash
+npx prisma generate
 ```
 
 Execute as migrations:
@@ -115,74 +218,55 @@ Execute as migrations:
 npx prisma migrate dev
 ```
 
-Gere o Prisma Client:
+---
 
-```bash
-npx prisma generate
-```
-
-Inicie:
+## Iniciando a API
 
 ```bash
 npm run dev
 ```
 
-A API estará disponível em:
+A API ficará disponível em:
 
 ```text
 http://localhost:3333
 ```
 
-Teste:
-
-```bash
-curl http://localhost:3333/health
-```
-
-Resposta esperada:
-
-```json
-{
-    "status": "ok",
-    "service": "devpulse-api"
-}
-```
-
 ---
 
-## Frontend
+# Frontend
 
-Em outro terminal:
+Abra outro terminal e entre no frontend:
 
 ```bash
 cd apps/web
 ```
 
-Instale:
+Instale as dependências:
 
 ```bash
 npm install
 ```
 
-Crie o ambiente:
+Crie o arquivo de ambiente:
 
 ```bash
 cp .env.example .env
 ```
 
-Configure:
+Configure o endereço da API:
 
 ```env
 VITE_API_URL=http://localhost:3333
 ```
 
-Execute:
+Inicie a aplicação:
 
 ```bash
 npm run dev
 ```
 
-A aplicação estará disponível em:
+O frontend ficará disponível em:
 
 ```text
 http://localhost:5173
@@ -190,6 +274,88 @@ http://localhost:5173
 
 ---
 
-## Autor
+# Testes
 
-Desenvolvido como projeto de estudo e portfólio.
+A API possui testes automatizados utilizando Vitest.
+
+Execute:
+
+```bash
+cd apps/api
+
+npm test
+```
+
+Para validar o build:
+
+```bash
+npm run build
+```
+
+No frontend:
+
+```bash
+cd apps/web
+
+npm run build
+```
+
+---
+
+# Build de produção
+
+## Backend
+
+```bash
+cd apps/api
+
+npm install
+
+npx prisma generate
+
+npm run build
+```
+
+---
+
+## Frontend
+
+```bash
+cd apps/web
+
+npm install
+
+npm run build
+```
+
+Os arquivos de produção do Vite serão gerados em:
+
+```text
+apps/web/dist
+```
+
+---
+
+# Autor
+
+Desenvolvido por **Gabrielle de Oliveira Fonseca** como projeto Full Stack de estudo e portfólio.
+
+GitHub:
+
+```text
+https://github.com/GabOof
+```
+
+Repositório:
+
+```text
+https://github.com/GabOof/DevPulse
+```
+
+---
+
+## Versão
+
+```text
+DevPulse v1.0.0
+```
