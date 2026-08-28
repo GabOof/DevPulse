@@ -38,6 +38,20 @@ interface SelectedRepository {
     repo: string;
 }
 
+type NoticeType = "success" | "info" | "warning";
+
+interface UiNotice {
+    type: NoticeType;
+
+    message: string;
+}
+
+/*
+ * =========================================================
+ * CONSTANTS
+ * =========================================================
+ */
+
 const INITIAL_PERIOD: AnalyticsPeriod = 30;
 
 /*
@@ -45,11 +59,9 @@ const INITIAL_PERIOD: AnalyticsPeriod = 30;
  * REPOSITORY INPUT PARSER
  * =========================================================
  *
- * Permite pesquisar usando:
+ * Formatos aceitos:
  *
  * GabOof/DevPulse
- *
- * ou:
  *
  * https://github.com/GabOof/DevPulse
  */
@@ -63,7 +75,7 @@ function parseRepositoryInput(input: string): SelectedRepository | null {
 
     /*
      * =====================================================
-     * URL COMPLETA DO GITHUB
+     * GITHUB URL
      * =====================================================
      */
 
@@ -77,10 +89,17 @@ function parseRepositoryInput(input: string): SelectedRepository | null {
                 return null;
             }
 
-            return {
-                owner: parts[0],
+            const owner = parts[0];
 
-                repo: parts[1].replace(/\.git$/, ""),
+            const repo = parts[1]?.replace(/\.git$/, "");
+
+            if (!owner || !repo) {
+                return null;
+            }
+
+            return {
+                owner,
+                repo,
             };
         } catch {
             return null;
@@ -99,11 +118,141 @@ function parseRepositoryInput(input: string): SelectedRepository | null {
         return null;
     }
 
-    return {
-        owner: parts[0],
+    const owner = parts[0];
 
-        repo: parts[1].replace(/\.git$/, ""),
+    const repo = parts[1]?.replace(/\.git$/, "");
+
+    if (!owner || !repo) {
+        return null;
+    }
+
+    return {
+        owner,
+        repo,
     };
+}
+
+/*
+ * =========================================================
+ * AUTH CALLBACK MESSAGE
+ * =========================================================
+ */
+
+function getAuthNotice(
+    status: string | null,
+
+    authenticated: boolean
+): UiNotice | null {
+    switch (status) {
+        case "success":
+            return authenticated
+                ? {
+                      type: "success",
+
+                      message: "Login com GitHub realizado com sucesso.",
+                  }
+                : {
+                      type: "warning",
+
+                      message:
+                          "O GitHub autorizou o acesso, mas não foi possível confirmar sua sessão.",
+                  };
+
+        case "denied":
+            return {
+                type: "info",
+
+                message: "Login com GitHub cancelado.",
+            };
+
+        case "expired":
+            return {
+                type: "warning",
+
+                message: "A tentativa de login expirou. Tente entrar novamente.",
+            };
+
+        case "invalid":
+        case "invalid_state":
+            return {
+                type: "warning",
+
+                message: "Não foi possível validar a autenticação do GitHub. Tente novamente.",
+            };
+
+        case "error":
+            return {
+                type: "warning",
+
+                message: "Não foi possível concluir o login com GitHub.",
+            };
+
+        default:
+            return null;
+    }
+}
+
+/*
+ * =========================================================
+ * INITIAL EMPTY STATE
+ * =========================================================
+ */
+
+function InitialEmptyState() {
+    return (
+        <section className="empty-state" aria-label="Começar análise">
+            <div className="empty-state-icon" aria-hidden="true">
+                DP
+            </div>
+
+            <div className="empty-state-content">
+                <span className="empty-state-eyebrow">Comece uma análise</span>
+
+                <h2>Pesquise um repositório do GitHub</h2>
+
+                <p>
+                    Informe um repositório no formato <strong>owner/repository</strong> ou cole a
+                    URL completa do GitHub.
+                </p>
+
+                <div className="empty-state-example">
+                    <span>Exemplo</span>
+
+                    <code>GabOof/DevPulse</code>
+                </div>
+            </div>
+        </section>
+    );
+}
+
+/*
+ * =========================================================
+ * INITIAL LOADING STATE
+ * =========================================================
+ */
+
+function RepositoryLoadingState() {
+    return (
+        <section className="repository-loading-state" aria-live="polite" aria-busy="true">
+            <div className="loading-state-header">
+                <span className="loading-spinner" />
+
+                <div>
+                    <strong>Analisando repositório</strong>
+
+                    <span>Buscando dados no GitHub e calculando métricas...</span>
+                </div>
+            </div>
+
+            <div className="loading-skeleton-grid" aria-hidden="true">
+                <div className="loading-skeleton-card" />
+
+                <div className="loading-skeleton-card" />
+
+                <div className="loading-skeleton-card" />
+            </div>
+        </section>
+    );
 }
 
 /*
@@ -115,7 +264,7 @@ function parseRepositoryInput(input: string): SelectedRepository | null {
 function App() {
     /*
      * =====================================================
-     * AUTENTICAÇÃO
+     * AUTHENTICATION
      * =====================================================
      */
 
@@ -123,9 +272,11 @@ function App() {
 
     const [authLoading, setAuthLoading] = useState(true);
 
+    const [logoutLoading, setLogoutLoading] = useState(false);
+
     /*
      * =====================================================
-     * REPOSITÓRIO
+     * REPOSITORY
      * =====================================================
      */
 
@@ -149,20 +300,6 @@ function App() {
      * =====================================================
      * API / CACHE METADATA
      * =====================================================
-     *
-     * repositoryMeta:
-     *
-     * - HIT
-     * - MISS
-     * - COALESCED
-     * - GitHub Rate Limit
-     *
-     * analyticsMeta:
-     *
-     * - HIT
-     * - MISS
-     * - COALESCED
-     * - GitHub Rate Limit
      */
 
     const [repositoryMeta, setRepositoryMeta] = useState<ApiResponseMeta | null>(null);
@@ -170,17 +307,16 @@ function App() {
     const [analyticsMeta, setAnalyticsMeta] = useState<ApiResponseMeta | null>(null);
 
     /*
-     * Indica que o usuário clicou
-     * explicitamente em:
-     *
-     * Atualizar agora
+     * =====================================================
+     * REFRESH
+     * =====================================================
      */
 
     const [refreshing, setRefreshing] = useState(false);
 
     /*
      * =====================================================
-     * HISTÓRICO
+     * HISTORY
      * =====================================================
      */
 
@@ -194,7 +330,7 @@ function App() {
 
     /*
      * =====================================================
-     * ESTADO GERAL
+     * GENERAL UI STATE
      * =====================================================
      */
 
@@ -202,16 +338,42 @@ function App() {
 
     const [error, setError] = useState<string | null>(null);
 
+    const [notice, setNotice] = useState<UiNotice | null>(null);
+
     /*
      * =====================================================
-     * RECUPERAR SESSÃO
+     * DERIVED UI STATE
+     * =====================================================
+     */
+
+    const hasRepository = repository !== null;
+
+    const hasAnalytics = analytics !== null;
+
+    const hasCurrentAnalysis = hasRepository && hasAnalytics;
+
+    const showInitialLoading = loading && !hasCurrentAnalysis;
+
+    const showEmptyState = !loading && !hasRepository;
+
+    /*
+     * =====================================================
+     * RESTORE SESSION
      * =====================================================
      */
 
     useEffect(() => {
         async function loadSession() {
+            const url = new URL(window.location.href);
+
+            const authStatus = url.searchParams.get("auth");
+
+            let authenticated = false;
+
             try {
                 const auth = await getCurrentUser();
+
+                authenticated = auth.authenticated;
 
                 if (auth.authenticated) {
                     setUser(auth.user);
@@ -220,39 +382,29 @@ function App() {
                 }
             } catch {
                 /*
-                 * Falha ao verificar
-                 * a sessão não deve
-                 * impedir o uso público
-                 * do DevPulse.
+                 * Uma falha na sessão não
+                 * impede análises públicas.
                  */
 
                 setUser(null);
             } finally {
                 setAuthLoading(false);
 
+                const authNotice = getAuthNotice(authStatus, authenticated);
+
+                if (authNotice) {
+                    setNotice(authNotice);
+                }
+
                 /*
-                 * O callback OAuth
-                 * retorna:
-                 *
-                 * /?auth=success
-                 *
-                 * Depois de verificarmos
-                 * a sessão, removemos o
-                 * parâmetro.
+                 * Remove o parâmetro OAuth
+                 * da URL depois de processá-lo.
                  */
 
-                const url = new URL(window.location.href);
-
-                if (url.searchParams.has("auth")) {
+                if (authStatus) {
                     url.searchParams.delete("auth");
 
-                    window.history.replaceState(
-                        {},
-
-                        "",
-
-                        `${url.pathname}${url.search}${url.hash}`
-                    );
+                    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
                 }
             }
         }
@@ -267,6 +419,10 @@ function App() {
      */
 
     function handleLogin() {
+        setError(null);
+
+        setNotice(null);
+
         window.location.assign(getGitHubLoginUrl());
     }
 
@@ -277,43 +433,65 @@ function App() {
      */
 
     async function handleLogout() {
+        if (logoutLoading) {
+            return;
+        }
+
         try {
+            setLogoutLoading(true);
+
             setError(null);
+
+            setNotice(null);
 
             await logout();
 
             setUser(null);
 
             /*
-             * Histórico pertence ao
-             * usuário autenticado.
+             * Os resultados podem ter sido
+             * obtidos usando acesso autenticado,
+             * inclusive de repositórios privados.
+             *
+             * Portanto limpamos toda a análise
+             * ao encerrar a sessão.
              */
+
+            setRepository(null);
+
+            setSelectedRepository(null);
+
+            setAnalytics(null);
 
             setHistory([]);
-
-            setSnapshotMessage(null);
-
-            /*
-             * Limpamos metadados porque
-             * caches públicos e autenticados
-             * possuem scopes diferentes.
-             */
 
             setRepositoryMeta(null);
 
             setAnalyticsMeta(null);
+
+            setPeriod(INITIAL_PERIOD);
+
+            setSnapshotMessage(null);
+
+            setNotice({
+                type: "success",
+
+                message: "Sessão encerrada com sucesso.",
+            });
         } catch (logoutError) {
             if (logoutError instanceof Error) {
                 setError(logoutError.message);
             } else {
                 setError("Não foi possível realizar logout.");
             }
+        } finally {
+            setLogoutLoading(false);
         }
     }
 
     /*
      * =====================================================
-     * BUSCAR REPOSITÓRIO
+     * SEARCH REPOSITORY
      * =====================================================
      */
 
@@ -328,43 +506,36 @@ function App() {
 
         const { owner, repo } = parsedRepository;
 
+        /*
+         * Se já existe uma análise na tela,
+         * mantemos os dados anteriores enquanto
+         * uma nova pesquisa é executada.
+         *
+         * Assim, uma falha na nova busca não
+         * apaga uma análise válida.
+         */
+
+        const hadCurrentAnalysis = hasCurrentAnalysis;
+
         try {
             setLoading(true);
 
-            setAnalyticsLoading(true);
+            if (!hadCurrentAnalysis) {
+                setAnalyticsLoading(true);
 
-            setHistoryLoading(Boolean(user));
+                setHistoryLoading(Boolean(user));
+            }
 
             setError(null);
 
+            setNotice(null);
+
             setSnapshotMessage(null);
-
-            /*
-             * Limpamos dados da pesquisa
-             * anterior.
-             */
-
-            setHistory([]);
-
-            setRepositoryMeta(null);
-
-            setAnalyticsMeta(null);
-
-            /*
-             * Toda nova busca começa
-             * novamente em 30 dias.
-             */
 
             const initialPeriod = INITIAL_PERIOD;
 
-            setPeriod(initialPeriod);
-
             /*
-             * Usuários autenticados têm
-             * histórico privado.
-             *
-             * Visitantes não fazem chamada
-             * ao endpoint protegido.
+             * Histórico é privado.
              */
 
             const historyRequest = user
@@ -376,11 +547,8 @@ function App() {
                   });
 
             /*
-             * Repository Overview,
-             * Analytics e History são
-             * independentes.
-             *
-             * Executamos em paralelo.
+             * Overview, analytics e histórico
+             * são independentes.
              */
 
             const [repositoryResponse, analyticsResponse, historyData] = await Promise.all([
@@ -392,9 +560,10 @@ function App() {
             ]);
 
             /*
-             * Salva o repositório atual
-             * para trocas de período,
-             * snapshots e refresh.
+             * Somente depois de todas as
+             * requisições concluírem com
+             * sucesso trocamos a análise
+             * apresentada na interface.
              */
 
             setSelectedRepository({
@@ -402,52 +571,32 @@ function App() {
                 repo,
             });
 
-            /*
-             * =================================================
-             * REPOSITORY
-             * =================================================
-             */
-
             setRepository(repositoryResponse.data);
 
             setRepositoryMeta(repositoryResponse.meta);
-
-            /*
-             * =================================================
-             * ANALYTICS
-             * =================================================
-             */
 
             setAnalytics(analyticsResponse.data);
 
             setAnalyticsMeta(analyticsResponse.meta);
 
-            /*
-             * =================================================
-             * HISTORY
-             * =================================================
-             */
-
             setHistory(historyData.history);
+
+            setPeriod(initialPeriod);
+
+            setNotice({
+                type: "success",
+
+                message: `Análise de ${owner}/${repo} concluída.`,
+            });
         } catch (searchError) {
             /*
-             * Limpamos dados antigos
-             * para não mostrar outro
-             * repositório junto com a
-             * mensagem de erro.
+             * Não limpamos a análise anterior.
+             *
+             * Caso o usuário tenha pesquisado
+             * um repositório inválido ou a API
+             * falhe, o conteúdo válido continua
+             * disponível.
              */
-
-            setRepository(null);
-
-            setAnalytics(null);
-
-            setHistory([]);
-
-            setSelectedRepository(null);
-
-            setRepositoryMeta(null);
-
-            setAnalyticsMeta(null);
 
             if (searchError instanceof Error) {
                 setError(searchError.message);
@@ -465,7 +614,7 @@ function App() {
 
     /*
      * =====================================================
-     * ALTERAR PERÍODO
+     * CHANGE PERIOD
      * =====================================================
      */
 
@@ -473,12 +622,6 @@ function App() {
         if (!selectedRepository) {
             return;
         }
-
-        /*
-         * Não precisamos refazer a
-         * requisição se o usuário clicar
-         * no período atual.
-         */
 
         if (newPeriod === period) {
             return;
@@ -493,11 +636,9 @@ function App() {
 
             setError(null);
 
-            setSnapshotMessage(null);
+            setNotice(null);
 
-            /*
-             * Histórico é privado.
-             */
+            setSnapshotMessage(null);
 
             const historyRequest = user
                 ? getRepositoryHistory(owner, repo, newPeriod)
@@ -507,16 +648,16 @@ function App() {
                       history: [],
                   });
 
-            /*
-             * Analytics e histórico podem
-             * ser atualizados em paralelo.
-             */
-
             const [analyticsResponse, historyData] = await Promise.all([
                 getRepositoryAnalytics(owner, repo, newPeriod),
 
                 historyRequest,
             ]);
+
+            /*
+             * O período só muda depois
+             * que os novos dados chegam.
+             */
 
             setAnalytics(analyticsResponse.data);
 
@@ -540,25 +681,23 @@ function App() {
 
     /*
      * =====================================================
-     * ATUALIZAÇÃO FORÇADA
+     * FORCE REFRESH
      * =====================================================
      *
-     * Ignora o TTL do DevPulse:
+     * Ignora o TTL do cache DevPulse:
      *
      * ?refresh=true
      *
-     * Porém o GitHubService continua
-     * utilizando:
-     *
-     * ETag
-     * If-None-Match
-     *
-     * Portanto o GitHub ainda pode
-     * responder 304 Not Modified.
+     * ETag / If-None-Match continuam sendo
+     * utilizados pelo backend.
      */
 
     async function handleRefresh() {
         if (!selectedRepository) {
+            return;
+        }
+
+        if (refreshing) {
             return;
         }
 
@@ -571,12 +710,9 @@ function App() {
 
             setError(null);
 
-            setSnapshotMessage(null);
+            setNotice(null);
 
-            /*
-             * Repository e Analytics podem
-             * ser revalidados em paralelo.
-             */
+            setSnapshotMessage(null);
 
             const [repositoryResponse, analyticsResponse] = await Promise.all([
                 getRepository(owner, repo, {
@@ -588,23 +724,25 @@ function App() {
                 }),
             ]);
 
-            /*
-             * Atualiza os dados apresentados.
-             */
-
             setRepository(repositoryResponse.data);
 
             setAnalytics(analyticsResponse.data);
 
-            /*
-             * Atualiza status do cache
-             * e rate limit.
-             */
-
             setRepositoryMeta(repositoryResponse.meta);
 
             setAnalyticsMeta(analyticsResponse.meta);
+
+            setNotice({
+                type: "success",
+
+                message: `Dados de ${owner}/${repo} atualizados.`,
+            });
         } catch (refreshError) {
+            /*
+             * Os dados anteriores permanecem
+             * visíveis em caso de falha.
+             */
+
             if (refreshError instanceof Error) {
                 setError(refreshError.message);
             } else {
@@ -619,7 +757,7 @@ function App() {
 
     /*
      * =====================================================
-     * SALVAR SNAPSHOT
+     * SAVE SNAPSHOT
      * =====================================================
      */
 
@@ -643,21 +781,18 @@ function App() {
 
             setError(null);
 
+            setNotice(null);
+
             /*
              * POST /analyze realiza uma
              * nova coleta antes de salvar.
-             *
-             * Portanto não persistimos
-             * dados possivelmente antigos
-             * existentes no navegador.
              */
 
             await saveRepositoryAnalysis(owner, repo, period);
 
             /*
-             * Depois de salvar, buscamos
-             * novamente o histórico para
-             * atualizar Project Evolution.
+             * Recarrega a evolução logo
+             * após salvar.
              */
 
             const historyData = await getRepositoryHistory(owner, repo, period);
@@ -700,10 +835,12 @@ function App() {
                 </div>
 
                 <div className="header-actions">
-                    <span className="version">v0.9</span>
+                    <span className="version">v1.0</span>
 
                     {authLoading ? (
-                        <span className="auth-loading">Verificando sessão...</span>
+                        <span className="auth-loading" aria-live="polite">
+                            Verificando sessão...
+                        </span>
                     ) : user ? (
                         <div className="auth-user">
                             {user.avatarUrl && (
@@ -716,8 +853,12 @@ function App() {
                                 {user.name && <span>{user.name}</span>}
                             </div>
 
-                            <button type="button" onClick={() => void handleLogout()}>
-                                Sair
+                            <button
+                                type="button"
+                                disabled={logoutLoading}
+                                onClick={() => void handleLogout()}
+                            >
+                                {logoutLoading ? "Saindo..." : "Sair"}
                             </button>
                         </div>
                     ) : (
@@ -734,7 +875,7 @@ function App() {
 
             <main className="app-main">
                 {/* ======================================
-                    HERO / SEARCH
+                    HERO
                 ====================================== */}
 
                 <section className="hero">
@@ -751,14 +892,71 @@ function App() {
                 </section>
 
                 {/* ======================================
-                    ERROR
+                    UI FEEDBACK
                 ====================================== */}
 
-                {error && (
-                    <div className="error-message" role="alert">
-                        {error}
+                <div className="app-feedback-region" aria-live="polite" aria-atomic="true">
+                    {notice && (
+                        <div className={`app-notice app-notice-${notice.type}`} role="status">
+                            <span>{notice.message}</span>
+
+                            <button
+                                type="button"
+                                className="feedback-dismiss-button"
+                                aria-label="Fechar mensagem"
+                                onClick={() => setNotice(null)}
+                            >
+                                ×
+                            </button>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="error-message app-error-message" role="alert">
+                            <div>
+                                <strong>Não foi possível concluir a operação.</strong>
+
+                                <span>{error}</span>
+                            </div>
+
+                            <button
+                                type="button"
+                                className="feedback-dismiss-button"
+                                aria-label="Fechar erro"
+                                onClick={() => setError(null)}
+                            >
+                                ×
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* ======================================
+                    NEW SEARCH INDICATOR
+                ====================================== */}
+
+                {loading && hasCurrentAnalysis && (
+                    <div className="background-loading-status" role="status">
+                        <span className="loading-spinner" />
+
+                        <span>
+                            Buscando novo repositório... A análise atual continuará disponível até a
+                            nova busca terminar.
+                        </span>
                     </div>
                 )}
+
+                {/* ======================================
+                    INITIAL LOADING
+                ====================================== */}
+
+                {showInitialLoading && <RepositoryLoadingState />}
+
+                {/* ======================================
+                    EMPTY STATE
+                ====================================== */}
+
+                {showEmptyState && <InitialEmptyState />}
 
                 {/* ======================================
                     REPOSITORY OVERVIEW
