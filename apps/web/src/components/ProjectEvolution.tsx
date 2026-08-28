@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 import {
     CartesianGrid,
     Line,
@@ -10,322 +12,666 @@ import {
 
 import type { AnalysisHistoryItem, AnalyticsPeriod } from "../types/analytics";
 
+/*
+ * =========================================================
+ * TYPES
+ * =========================================================
+ */
+
 interface ProjectEvolutionProps {
     history: AnalysisHistoryItem[];
+
     period: AnalyticsPeriod;
+
     loading: boolean;
 }
 
-function formatDate(value: string): string {
-    return new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-    }).format(new Date(value));
+/*
+ * =========================================================
+ * FORMATTERS
+ * =========================================================
+ */
+
+const shortDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+
+    month: "2-digit",
+});
+
+const fullDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+
+    month: "short",
+
+    year: "numeric",
+
+    hour: "2-digit",
+
+    minute: "2-digit",
+});
+
+const integerFormatter = new Intl.NumberFormat("pt-BR");
+
+const percentageFormatter = new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 1,
+});
+
+/*
+ * =========================================================
+ * NORMALIZE COUNT
+ * =========================================================
+ */
+
+function normalizeCount(value: number): number {
+    if (!Number.isFinite(value) || value < 0) {
+        return 0;
+    }
+
+    return Math.round(value);
 }
+
+/*
+ * =========================================================
+ * NORMALIZE PERCENTAGE
+ * =========================================================
+ */
+
+function normalizePercentage(value: number): number {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.min(100, Math.max(0, value));
+}
+
+/*
+ * =========================================================
+ * FORMAT COUNT
+ * =========================================================
+ */
+
+function formatCount(value: number): string {
+    return integerFormatter.format(normalizeCount(value));
+}
+
+/*
+ * =========================================================
+ * FORMAT PERCENTAGE
+ * =========================================================
+ */
+
+function formatPercentage(value: number): string {
+    return `${percentageFormatter.format(normalizePercentage(value))}%`;
+}
+
+/*
+ * =========================================================
+ * SAFE DATE
+ * =========================================================
+ */
+
+function parseDate(value: string): Date | null {
+    if (!value) {
+        return null;
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    return date;
+}
+
+/*
+ * =========================================================
+ * FORMAT SHORT DATE
+ * =========================================================
+ */
+
+function formatDate(value: string): string {
+    const date = parseDate(value);
+
+    if (!date) {
+        return "—";
+    }
+
+    return shortDateFormatter.format(date);
+}
+
+/*
+ * =========================================================
+ * FORMAT FULL DATE
+ * =========================================================
+ */
 
 function formatFullDate(value: string): string {
-    return new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    }).format(new Date(value));
+    const date = parseDate(value);
+
+    if (!date) {
+        return "Data indisponível";
+    }
+
+    return fullDateFormatter.format(date);
 }
 
+/*
+ * =========================================================
+ * DATE TIMESTAMP
+ * =========================================================
+ */
+
+function getTimestamp(value: string): number {
+    const date = parseDate(value);
+
+    return date?.getTime() ?? 0;
+}
+
+/*
+ * =========================================================
+ * PROJECT EVOLUTION
+ * =========================================================
+ */
+
 export function ProjectEvolution({ history, period, loading }: ProjectEvolutionProps) {
-    const chartData = history.map((snapshot) => ({
-        ...snapshot,
+    /*
+     * =====================================================
+     * CHART DATA
+     * =====================================================
+     *
+     * Não dependemos da ordem retornada pelo backend.
+     *
+     * Os snapshots são ordenados cronologicamente antes
+     * de serem utilizados nos gráficos.
+     */
 
-        date: formatDate(snapshot.analyzedAt),
+    const chartData = useMemo(
+        () =>
+            [...history]
+                .sort(
+                    (first, second) =>
+                        getTimestamp(first.analyzedAt) - getTimestamp(second.analyzedAt)
+                )
+                .map((snapshot) => ({
+                    ...snapshot,
 
-        fullDate: formatFullDate(snapshot.analyzedAt),
-    }));
+                    totalCommits: normalizeCount(snapshot.totalCommits),
 
-    const latest = history.length > 0 ? history[history.length - 1] : null;
+                    conventionalPercentage: normalizePercentage(snapshot.conventionalPercentage),
+
+                    totalContributors: normalizeCount(snapshot.totalContributors),
+
+                    date: formatDate(snapshot.analyzedAt),
+
+                    fullDate: formatFullDate(snapshot.analyzedAt),
+                })),
+        [history]
+    );
+
+    /*
+     * =====================================================
+     * LATEST SNAPSHOT
+     * =====================================================
+     */
+
+    const latest = chartData.length > 0 ? chartData[chartData.length - 1] : null;
+
+    const snapshotCount = chartData.length;
+
+    const hasHistory = snapshotCount > 0;
+
+    const hasTrend = snapshotCount >= 2;
+
+    /*
+     * =====================================================
+     * ACCESSIBLE SUMMARIES
+     * =====================================================
+     */
+
+    const commitsChartDescription = hasTrend
+        ? `Evolução do número de commits em ${snapshotCount} snapshots armazenados.`
+        : "Ainda não existem snapshots suficientes para calcular uma tendência de commits.";
+
+    const conventionalChartDescription = hasTrend
+        ? `Evolução da porcentagem de Conventional Commits em ${snapshotCount} snapshots armazenados.`
+        : "Ainda não existem snapshots suficientes para calcular uma tendência de Conventional Commits.";
+
+    const contributorsChartDescription = hasTrend
+        ? `Evolução do número de contribuidores em ${snapshotCount} snapshots armazenados.`
+        : "Ainda não existem snapshots suficientes para calcular uma tendência de contribuidores.";
 
     return (
-        <section className="project-evolution">
+        <section
+            className="project-evolution"
+            aria-labelledby="project-evolution-title"
+            aria-busy={loading}
+        >
+            {/* ==========================================
+                HEADER
+            ========================================== */}
+
             <header className="evolution-header">
                 <div>
                     <span className="panel-eyebrow">Historical Analytics</span>
 
-                    <h2>Project Evolution</h2>
+                    <h2 id="project-evolution-title">Project Evolution</h2>
 
                     <p>Evolução das métricas armazenadas para análises de {period} dias.</p>
                 </div>
 
-                <div className="snapshot-counter">
+                <div
+                    className="snapshot-counter"
+                    aria-label={`${snapshotCount} ${
+                        snapshotCount === 1 ? "snapshot armazenado" : "snapshots armazenados"
+                    }`}
+                >
                     <span>Snapshots</span>
 
-                    <strong>{history.length}</strong>
+                    <strong>{formatCount(snapshotCount)}</strong>
                 </div>
             </header>
 
+            {/* ==========================================
+                LOADING
+            ========================================== */}
+
             {loading ? (
-                <div className="evolution-empty">Carregando histórico...</div>
-            ) : history.length === 0 ? (
-                <div className="evolution-empty">
+                <div className="evolution-empty" role="status" aria-live="polite">
+                    <span className="loading-spinner" aria-hidden="true" />
+
+                    <strong>Carregando histórico</strong>
+
+                    <p>Recuperando snapshots armazenados para este período.</p>
+                </div>
+            ) : !hasHistory ? (
+                /* ======================================
+                    EMPTY
+                ====================================== */
+
+                <div className="evolution-empty" role="status">
                     <strong>Nenhum snapshot armazenado</strong>
 
                     <p>Salve a análise atual para iniciar o histórico deste repositório.</p>
                 </div>
             ) : (
                 <>
-                    <div className="evolution-summary">
+                    {/* ==================================
+                        LATEST SNAPSHOT SUMMARY
+                    ================================== */}
+
+                    <div className="evolution-summary" aria-label="Resumo do snapshot mais recente">
                         <article>
                             <span>Último snapshot</span>
 
-                            <strong>{latest ? formatFullDate(latest.analyzedAt) : "—"}</strong>
+                            <strong>{latest ? latest.fullDate : "—"}</strong>
                         </article>
 
                         <article>
                             <span>Commits</span>
 
-                            <strong>{latest?.totalCommits ?? 0}</strong>
+                            <strong>{formatCount(latest?.totalCommits ?? 0)}</strong>
                         </article>
 
                         <article>
                             <span>Conventional</span>
 
-                            <strong>{latest?.conventionalPercentage ?? 0}%</strong>
+                            <strong>{formatPercentage(latest?.conventionalPercentage ?? 0)}</strong>
                         </article>
 
                         <article>
                             <span>Contribuidores</span>
 
-                            <strong>{latest?.totalContributors ?? 0}</strong>
+                            <strong>{formatCount(latest?.totalContributors ?? 0)}</strong>
                         </article>
                     </div>
 
-                    {history.length === 1 && (
-                        <div className="evolution-notice">
-                            O primeiro snapshot foi registrado. Salve novas análises futuramente
-                            para visualizar tendências temporais.
+                    {/* ==================================
+                        FIRST SNAPSHOT
+                    ================================== */}
+
+                    {!hasTrend && (
+                        <div className="evolution-notice" role="status">
+                            O primeiro snapshot foi registrado. Salve uma nova análise futuramente
+                            para que o DevPulse possa comparar os resultados e apresentar tendências
+                            temporais.
                         </div>
                     )}
 
-                    <div className="evolution-charts">
-                        <section className="analytics-panel">
-                            <div className="panel-header">
-                                <div>
-                                    <span className="panel-eyebrow">Atividade</span>
+                    {/* ==================================
+                        CHARTS
+                    ================================== */}
 
-                                    <h3>Evolução de commits</h3>
+                    {hasTrend && (
+                        <div className="evolution-charts">
+                            {/* ==========================
+                                COMMITS
+                            ========================== */}
+
+                            <section
+                                className="analytics-panel"
+                                aria-labelledby="commit-evolution-title"
+                            >
+                                <div className="panel-header">
+                                    <div>
+                                        <span className="panel-eyebrow">Atividade</span>
+
+                                        <h3 id="commit-evolution-title">Evolução de commits</h3>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="evolution-chart-container">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart
-                                        data={chartData}
-                                        margin={{
-                                            top: 10,
-                                            right: 10,
-                                            bottom: 0,
-                                            left: -20,
-                                        }}
-                                    >
-                                        <CartesianGrid
-                                            vertical={false}
-                                            stroke="#21262d"
-                                            strokeDasharray="3 3"
-                                        />
+                                <div
+                                    className="evolution-chart-container"
+                                    role="img"
+                                    aria-label={commitsChartDescription}
+                                >
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart
+                                            data={chartData}
+                                            margin={{
+                                                top: 10,
 
-                                        <XAxis
-                                            dataKey="date"
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tick={{
-                                                fill: "#8b949e",
-                                                fontSize: 11,
+                                                right: 10,
+
+                                                bottom: 0,
+
+                                                left: -20,
                                             }}
-                                        />
+                                        >
+                                            <CartesianGrid
+                                                vertical={false}
+                                                stroke="var(--border-soft)"
+                                                strokeDasharray="3 3"
+                                            />
 
-                                        <YAxis
-                                            allowDecimals={false}
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tick={{
-                                                fill: "#8b949e",
-                                                fontSize: 11,
-                                            }}
-                                        />
+                                            <XAxis
+                                                dataKey="date"
+                                                tickLine={false}
+                                                axisLine={false}
+                                                minTickGap={20}
+                                                tick={{
+                                                    fill: "var(--text-muted)",
 
-                                        <Tooltip
-                                            contentStyle={{
-                                                background: "#161b22",
-                                                border: "1px solid #30363d",
-                                                borderRadius: "8px",
-                                            }}
-                                            labelStyle={{
-                                                color: "#f0f6fc",
-                                            }}
-                                        />
+                                                    fontSize: 11,
+                                                }}
+                                            />
 
-                                        <Line
-                                            type="monotone"
-                                            dataKey="totalCommits"
-                                            name="Commits"
-                                            stroke="#58a6ff"
-                                            strokeWidth={2}
-                                            dot={{
-                                                r: 4,
-                                            }}
-                                            activeDot={{
-                                                r: 6,
-                                            }}
-                                        />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </section>
+                                            <YAxis
+                                                allowDecimals={false}
+                                                domain={[0, "auto"]}
+                                                tickLine={false}
+                                                axisLine={false}
+                                                tick={{
+                                                    fill: "var(--text-muted)",
 
-                        <section className="analytics-panel">
-                            <div className="panel-header">
-                                <div>
-                                    <span className="panel-eyebrow">Padronização</span>
+                                                    fontSize: 11,
+                                                }}
+                                            />
 
-                                    <h3>Conventional Commits</h3>
+                                            <Tooltip
+                                                contentStyle={{
+                                                    background: "var(--surface-elevated)",
+
+                                                    border: "1px solid var(--border)",
+
+                                                    borderRadius: "8px",
+
+                                                    boxShadow: "0 12px 30px rgb(0 0 0 / 25%)",
+                                                }}
+                                                labelStyle={{
+                                                    color: "var(--text)",
+                                                }}
+                                                itemStyle={{
+                                                    color: "var(--text-secondary)",
+                                                }}
+                                                formatter={(value) => [
+                                                    `${formatCount(Number(value))} commits`,
+
+                                                    "Commits",
+                                                ]}
+                                            />
+
+                                            <Line
+                                                type="monotone"
+                                                dataKey="totalCommits"
+                                                name="Commits"
+                                                stroke="var(--accent)"
+                                                strokeWidth={2}
+                                                dot={{
+                                                    r: 4,
+                                                }}
+                                                activeDot={{
+                                                    r: 6,
+                                                }}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
                                 </div>
-                            </div>
+                            </section>
 
-                            <div className="evolution-chart-container">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart
-                                        data={chartData}
-                                        margin={{
-                                            top: 10,
-                                            right: 10,
-                                            bottom: 0,
-                                            left: -20,
-                                        }}
-                                    >
-                                        <CartesianGrid
-                                            vertical={false}
-                                            stroke="#21262d"
-                                            strokeDasharray="3 3"
-                                        />
+                            {/* ==========================
+                                CONVENTIONAL COMMITS
+                            ========================== */}
 
-                                        <XAxis
-                                            dataKey="date"
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tick={{
-                                                fill: "#8b949e",
-                                                fontSize: 11,
-                                            }}
-                                        />
+                            <section
+                                className="analytics-panel"
+                                aria-labelledby="conventional-evolution-title"
+                            >
+                                <div className="panel-header">
+                                    <div>
+                                        <span className="panel-eyebrow">Padronização</span>
 
-                                        <YAxis
-                                            domain={[0, 100]}
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tick={{
-                                                fill: "#8b949e",
-                                                fontSize: 11,
-                                            }}
-                                            unit="%"
-                                        />
-
-                                        <Tooltip
-                                            contentStyle={{
-                                                background: "#161b22",
-                                                border: "1px solid #30363d",
-                                                borderRadius: "8px",
-                                            }}
-                                        />
-
-                                        <Line
-                                            type="monotone"
-                                            dataKey="conventionalPercentage"
-                                            name="Conventional"
-                                            stroke="#3fb950"
-                                            strokeWidth={2}
-                                            dot={{
-                                                r: 4,
-                                            }}
-                                            activeDot={{
-                                                r: 6,
-                                            }}
-                                        />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </section>
-
-                        <section className="analytics-panel">
-                            <div className="panel-header">
-                                <div>
-                                    <span className="panel-eyebrow">Colaboração</span>
-
-                                    <h3>Evolução de contribuidores</h3>
+                                        <h3 id="conventional-evolution-title">
+                                            Conventional Commits
+                                        </h3>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="evolution-chart-container">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart
-                                        data={chartData}
-                                        margin={{
-                                            top: 10,
-                                            right: 10,
-                                            bottom: 0,
-                                            left: -20,
-                                        }}
-                                    >
-                                        <CartesianGrid
-                                            vertical={false}
-                                            stroke="#21262d"
-                                            strokeDasharray="3 3"
-                                        />
+                                <div
+                                    className="evolution-chart-container"
+                                    role="img"
+                                    aria-label={conventionalChartDescription}
+                                >
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart
+                                            data={chartData}
+                                            margin={{
+                                                top: 10,
 
-                                        <XAxis
-                                            dataKey="date"
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tick={{
-                                                fill: "#8b949e",
-                                                fontSize: 11,
-                                            }}
-                                        />
+                                                right: 10,
 
-                                        <YAxis
-                                            allowDecimals={false}
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tick={{
-                                                fill: "#8b949e",
-                                                fontSize: 11,
-                                            }}
-                                        />
+                                                bottom: 0,
 
-                                        <Tooltip
-                                            contentStyle={{
-                                                background: "#161b22",
-                                                border: "1px solid #30363d",
-                                                borderRadius: "8px",
+                                                left: -20,
                                             }}
-                                        />
+                                        >
+                                            <CartesianGrid
+                                                vertical={false}
+                                                stroke="var(--border-soft)"
+                                                strokeDasharray="3 3"
+                                            />
 
-                                        <Line
-                                            type="monotone"
-                                            dataKey="totalContributors"
-                                            name="Contribuidores"
-                                            stroke="#a371f7"
-                                            strokeWidth={2}
-                                            dot={{
-                                                r: 4,
+                                            <XAxis
+                                                dataKey="date"
+                                                tickLine={false}
+                                                axisLine={false}
+                                                minTickGap={20}
+                                                tick={{
+                                                    fill: "var(--text-muted)",
+
+                                                    fontSize: 11,
+                                                }}
+                                            />
+
+                                            <YAxis
+                                                domain={[0, 100]}
+                                                tickLine={false}
+                                                axisLine={false}
+                                                tick={{
+                                                    fill: "var(--text-muted)",
+
+                                                    fontSize: 11,
+                                                }}
+                                                unit="%"
+                                            />
+
+                                            <Tooltip
+                                                contentStyle={{
+                                                    background: "var(--surface-elevated)",
+
+                                                    border: "1px solid var(--border)",
+
+                                                    borderRadius: "8px",
+
+                                                    boxShadow: "0 12px 30px rgb(0 0 0 / 25%)",
+                                                }}
+                                                labelStyle={{
+                                                    color: "var(--text)",
+                                                }}
+                                                itemStyle={{
+                                                    color: "var(--text-secondary)",
+                                                }}
+                                                formatter={(value) => [
+                                                    formatPercentage(Number(value)),
+
+                                                    "Conventional",
+                                                ]}
+                                            />
+
+                                            <Line
+                                                type="monotone"
+                                                dataKey="conventionalPercentage"
+                                                name="Conventional"
+                                                stroke="var(--green)"
+                                                strokeWidth={2}
+                                                dot={{
+                                                    r: 4,
+                                                }}
+                                                activeDot={{
+                                                    r: 6,
+                                                }}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </section>
+
+                            {/* ==========================
+                                CONTRIBUTORS
+                            ========================== */}
+
+                            <section
+                                className="analytics-panel"
+                                aria-labelledby="contributors-evolution-title"
+                            >
+                                <div className="panel-header">
+                                    <div>
+                                        <span className="panel-eyebrow">Colaboração</span>
+
+                                        <h3 id="contributors-evolution-title">
+                                            Evolução de contribuidores
+                                        </h3>
+                                    </div>
+                                </div>
+
+                                <div
+                                    className="evolution-chart-container"
+                                    role="img"
+                                    aria-label={contributorsChartDescription}
+                                >
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart
+                                            data={chartData}
+                                            margin={{
+                                                top: 10,
+
+                                                right: 10,
+
+                                                bottom: 0,
+
+                                                left: -20,
                                             }}
-                                            activeDot={{
-                                                r: 6,
-                                            }}
-                                        />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </section>
-                    </div>
+                                        >
+                                            <CartesianGrid
+                                                vertical={false}
+                                                stroke="var(--border-soft)"
+                                                strokeDasharray="3 3"
+                                            />
+
+                                            <XAxis
+                                                dataKey="date"
+                                                tickLine={false}
+                                                axisLine={false}
+                                                minTickGap={20}
+                                                tick={{
+                                                    fill: "var(--text-muted)",
+
+                                                    fontSize: 11,
+                                                }}
+                                            />
+
+                                            <YAxis
+                                                allowDecimals={false}
+                                                domain={[0, "auto"]}
+                                                tickLine={false}
+                                                axisLine={false}
+                                                tick={{
+                                                    fill: "var(--text-muted)",
+
+                                                    fontSize: 11,
+                                                }}
+                                            />
+
+                                            <Tooltip
+                                                contentStyle={{
+                                                    background: "var(--surface-elevated)",
+
+                                                    border: "1px solid var(--border)",
+
+                                                    borderRadius: "8px",
+
+                                                    boxShadow: "0 12px 30px rgb(0 0 0 / 25%)",
+                                                }}
+                                                labelStyle={{
+                                                    color: "var(--text)",
+                                                }}
+                                                itemStyle={{
+                                                    color: "var(--text-secondary)",
+                                                }}
+                                                formatter={(value) => {
+                                                    const count = normalizeCount(Number(value));
+
+                                                    return [
+                                                        `${formatCount(count)} ${
+                                                            count === 1
+                                                                ? "contribuidor"
+                                                                : "contribuidores"
+                                                        }`,
+
+                                                        "Contribuidores",
+                                                    ];
+                                                }}
+                                            />
+
+                                            <Line
+                                                type="monotone"
+                                                dataKey="totalContributors"
+                                                name="Contribuidores"
+                                                stroke="var(--purple)"
+                                                strokeWidth={2}
+                                                dot={{
+                                                    r: 4,
+                                                }}
+                                                activeDot={{
+                                                    r: 6,
+                                                }}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </section>
+                        </div>
+                    )}
                 </>
             )}
         </section>
