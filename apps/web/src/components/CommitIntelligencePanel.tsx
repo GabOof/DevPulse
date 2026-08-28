@@ -1,16 +1,34 @@
 import type { CommitCategory, CommitCategoryStats, CommitIntelligence } from "../types/analytics";
 
+/*
+ * =========================================================
+ * TYPES
+ * =========================================================
+ */
+
 interface CommitIntelligencePanelProps {
     intelligence: CommitIntelligence;
 }
 
+/*
+ * =========================================================
+ * LABELS
+ * =========================================================
+ */
+
 const categoryLabels: Record<CommitCategory, string> = {
     feature: "Features",
+
     fix: "Correções",
+
     refactor: "Refatorações",
+
     docs: "Documentação",
+
     test: "Testes",
+
     chore: "Manutenção",
+
     other: "Outros",
 };
 
@@ -28,10 +46,146 @@ const profileLabels: Record<Exclude<CommitCategory, "other">, string> = {
     chore: "Manutenção técnica",
 };
 
+/*
+ * =========================================================
+ * FORMATTERS
+ * =========================================================
+ */
+
+const percentageFormatter = new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 1,
+});
+
+const integerFormatter = new Intl.NumberFormat("pt-BR");
+
+const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+
+    month: "short",
+
+    year: "numeric",
+});
+
+/*
+ * =========================================================
+ * NORMALIZE PERCENTAGE
+ * =========================================================
+ */
+
+function normalizePercentage(value: number): number {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.min(100, Math.max(0, value));
+}
+
+/*
+ * =========================================================
+ * NORMALIZE COUNT
+ * =========================================================
+ */
+
+function normalizeCount(value: number): number {
+    if (!Number.isFinite(value) || value < 0) {
+        return 0;
+    }
+
+    return Math.round(value);
+}
+
+/*
+ * =========================================================
+ * FORMAT PERCENTAGE
+ * =========================================================
+ */
+
+function formatPercentage(value: number): string {
+    return percentageFormatter.format(normalizePercentage(value));
+}
+
+/*
+ * =========================================================
+ * FORMAT COUNT
+ * =========================================================
+ */
+
+function formatCount(value: number): string {
+    return integerFormatter.format(normalizeCount(value));
+}
+
+/*
+ * =========================================================
+ * FORMAT DATE
+ * =========================================================
+ */
+
+function formatDate(value: string): string {
+    if (!value) {
+        return "Data indisponível";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "Data indisponível";
+    }
+
+    return dateFormatter.format(date);
+}
+
+/*
+ * =========================================================
+ * COMMIT LABEL
+ * =========================================================
+ */
+
+function getCommitLabel(count: number): string {
+    const normalized = normalizeCount(count);
+
+    return normalized === 1 ? "commit identificado" : "commits identificados";
+}
+
+/*
+ * =========================================================
+ * BREAKING CHANGES LABEL
+ * =========================================================
+ */
+
+function getBreakingChangesLabel(count: number): string {
+    const normalized = normalizeCount(count);
+
+    return normalized === 1
+        ? "alteração incompatível detectada"
+        : "alterações incompatíveis detectadas";
+}
+
+/*
+ * =========================================================
+ * DEVELOPMENT PROFILE
+ * =========================================================
+ */
+
 function getDevelopmentProfile(categories: CommitCategoryStats[]): string {
+    /*
+     * Criamos um novo array antes de ordenar.
+     *
+     * Assim nunca alteramos o array recebido
+     * através das props.
+     */
+
     const activeCategories = categories
-        .filter((category) => category.count > 0)
-        .sort((a, b) => b.percentage - a.percentage);
+        .filter((category) => normalizeCount(category.count) > 0)
+        .map((category) => ({
+            ...category,
+
+            percentage: normalizePercentage(category.percentage),
+        }))
+        .sort((first, second) => second.percentage - first.percentage);
+
+    /*
+     * Nenhum commit classificado.
+     */
 
     if (activeCategories.length === 0) {
         return "Sem atividade recente";
@@ -41,9 +195,24 @@ function getDevelopmentProfile(categories: CommitCategoryStats[]): string {
 
     const second = activeCategories[1];
 
+    if (!first) {
+        return "Sem atividade recente";
+    }
+
+    /*
+     * Caso "other" seja predominante,
+     * não inferimos um perfil específico.
+     */
+
     if (first.category === "other") {
         return "Perfil não classificado";
     }
+
+    /*
+     * Diferença de até cinco pontos
+     * percentuais entre as duas categorias
+     * mais frequentes.
+     */
 
     if (second && first.percentage - second.percentage <= 5) {
         return "Perfil equilibrado";
@@ -52,127 +221,203 @@ function getDevelopmentProfile(categories: CommitCategoryStats[]): string {
     return profileLabels[first.category];
 }
 
-function formatPercentage(value: number): string {
-    return new Intl.NumberFormat("pt-BR", {
-        maximumFractionDigits: 1,
-    }).format(value);
-}
-
-function formatDate(value: string): string {
-    if (!value) {
-        return "Data indisponível";
-    }
-
-    return new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-    }).format(new Date(value));
-}
+/*
+ * =========================================================
+ * COMMIT INTELLIGENCE PANEL
+ * =========================================================
+ */
 
 export function CommitIntelligencePanel({ intelligence }: CommitIntelligencePanelProps) {
     const profile = getDevelopmentProfile(intelligence.categories);
 
+    const conventionalPercentage = normalizePercentage(intelligence.conventionalPercentage);
+
+    const conventionalCommits = normalizeCount(intelligence.conventionalCommits);
+
+    const breakingChanges = normalizeCount(intelligence.breakingChanges);
+
+    const hasCategories = intelligence.categories.some(
+        (category) => normalizeCount(category.count) > 0
+    );
+
     return (
-        <section className="commit-intelligence">
+        <section className="commit-intelligence" aria-labelledby="commit-intelligence-title">
+            {/* ==========================================
+                HEADER
+            ========================================== */}
+
             <header className="intelligence-header">
                 <div>
                     <span className="panel-eyebrow">Mining Software Repositories</span>
 
-                    <h2>Commit Intelligence</h2>
+                    <h2 id="commit-intelligence-title">Commit Intelligence</h2>
 
                     <p>Análise semântica das mensagens de commit do período selecionado.</p>
                 </div>
 
-                <div className="development-profile">
+                <div className="development-profile" aria-label={`Perfil predominante: ${profile}`}>
                     <span>Perfil predominante</span>
 
                     <strong>{profile}</strong>
                 </div>
             </header>
 
-            <div className="intelligence-overview">
+            {/* ==========================================
+                OVERVIEW
+            ========================================== */}
+
+            <div className="intelligence-overview" aria-label="Resumo da inteligência de commits">
+                {/* ======================================
+                    CONVENTIONAL COMMITS
+                ====================================== */}
+
                 <article className="intelligence-card">
                     <span>Conventional Commits</span>
 
-                    <strong>{formatPercentage(intelligence.conventionalPercentage)}%</strong>
+                    <strong>{formatPercentage(conventionalPercentage)}%</strong>
 
-                    <small>{intelligence.conventionalCommits} commits identificados</small>
+                    <small>
+                        {formatCount(conventionalCommits)} {getCommitLabel(conventionalCommits)}
+                    </small>
 
-                    <div className="conventional-progress">
+                    <div
+                        className="conventional-progress"
+                        role="progressbar"
+                        aria-label={`Conventional Commits: ${formatPercentage(
+                            conventionalPercentage
+                        )}%`}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={conventionalPercentage}
+                    >
                         <div
+                            aria-hidden="true"
                             style={{
-                                width: `${Math.min(intelligence.conventionalPercentage, 100)}%`,
+                                width: `${conventionalPercentage}%`,
                             }}
                         />
                     </div>
                 </article>
 
+                {/* ======================================
+                    BREAKING CHANGES
+                ====================================== */}
+
                 <article className="intelligence-card">
                     <span>Breaking Changes</span>
 
-                    <strong>{intelligence.breakingChanges}</strong>
+                    <strong>{formatCount(breakingChanges)}</strong>
 
-                    <small>alterações incompatíveis detectadas</small>
+                    <small>{getBreakingChangesLabel(breakingChanges)}</small>
                 </article>
             </div>
 
+            {/* ==========================================
+                DETAILS
+            ========================================== */}
+
             <div className="intelligence-grid">
-                <section className="analytics-panel">
+                {/* ======================================
+                    CATEGORIES
+                ====================================== */}
+
+                <section className="analytics-panel" aria-labelledby="commit-categories-title">
                     <div className="panel-header">
                         <div>
                             <span className="panel-eyebrow">Distribuição</span>
 
-                            <h3>Tipos de alteração</h3>
+                            <h3 id="commit-categories-title">Tipos de alteração</h3>
                         </div>
                     </div>
 
-                    <div className="commit-categories">
-                        {intelligence.categories.map((category) => (
-                            <div className="commit-category" key={category.category}>
-                                <div className="commit-category-header">
-                                    <span>{categoryLabels[category.category]}</span>
+                    {!hasCategories ? (
+                        <p className="empty-state" role="status">
+                            Não houve commits suficientes para identificar tipos de alteração neste
+                            período.
+                        </p>
+                    ) : (
+                        <div
+                            className="commit-categories"
+                            aria-label="Distribuição dos tipos de commit"
+                        >
+                            {intelligence.categories.map((category) => {
+                                const percentage = normalizePercentage(category.percentage);
 
-                                    <div>
-                                        <strong>{category.count}</strong>
+                                const count = normalizeCount(category.count);
 
-                                        <small>{formatPercentage(category.percentage)}%</small>
+                                const label = categoryLabels[category.category];
+
+                                return (
+                                    <div className="commit-category" key={category.category}>
+                                        <div className="commit-category-header">
+                                            <span>{label}</span>
+
+                                            <div>
+                                                <strong>{formatCount(count)}</strong>
+
+                                                <small>{formatPercentage(percentage)}%</small>
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            className="commit-category-bar"
+                                            role="progressbar"
+                                            aria-label={`${label}: ${formatPercentage(
+                                                percentage
+                                            )}%`}
+                                            aria-valuemin={0}
+                                            aria-valuemax={100}
+                                            aria-valuenow={percentage}
+                                        >
+                                            <div
+                                                aria-hidden="true"
+                                                style={{
+                                                    width: `${percentage}%`,
+                                                }}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-
-                                <div className="commit-category-bar">
-                                    <div
-                                        style={{
-                                            width: `${category.percentage}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </section>
 
-                <section className="analytics-panel recent-commits-panel">
+                {/* ======================================
+                    RECENT COMMITS
+                ====================================== */}
+
+                <section
+                    className="analytics-panel recent-commits-panel"
+                    aria-labelledby="recent-commits-title"
+                >
                     <div className="panel-header">
                         <div>
                             <span className="panel-eyebrow">Histórico</span>
 
-                            <h3>Commits recentes</h3>
+                            <h3 id="recent-commits-title">Commits recentes</h3>
                         </div>
                     </div>
 
                     {intelligence.recentCommits.length === 0 ? (
-                        <p className="empty-state">Nenhum commit encontrado neste período.</p>
+                        <p className="empty-state" role="status">
+                            Nenhum commit encontrado neste período.
+                        </p>
                     ) : (
                         <div className="recent-commits">
                             {intelligence.recentCommits.map((commit) => (
                                 <a
                                     href={commit.url}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     className="recent-commit"
                                     key={commit.sha}
+                                    aria-label={`Commit ${commit.shortSha}: ${commit.message}. Abrir no GitHub em uma nova aba.`}
                                 >
+                                    {/* ==================
+                                            COMMIT HEADER
+                                        ================== */}
+
                                     <div className="commit-top">
                                         <span
                                             className={`commit-badge commit-badge-${commit.category}`}
@@ -187,10 +432,18 @@ export function CommitIntelligencePanel({ intelligence }: CommitIntelligencePane
                                         )}
                                     </div>
 
+                                    {/* ==================
+                                            MESSAGE
+                                        ================== */}
+
                                     <strong className="commit-message">{commit.message}</strong>
 
+                                    {/* ==================
+                                            METADATA
+                                        ================== */}
+
                                     <div className="commit-meta">
-                                        <span>{commit.author}</span>
+                                        <span>{commit.author || "Autor não identificado"}</span>
 
                                         <span>{formatDate(commit.date)}</span>
 
