@@ -81,3 +81,6 @@ temp/
 # =========================
 
 *.tsbuildinfo
+
+.neon
+.claude
