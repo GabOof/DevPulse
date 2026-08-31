@@ -10,6 +10,43 @@ A aplicação permite analisar repositórios públicos sem autenticação e, atr
 
 ---
 
+## Aplicação em produção
+
+**Frontend**
+
+https://gaboof.github.io/DevPulse/
+
+**API**
+
+https://devpulse-api-gab.onrender.com
+
+**Repositório**
+
+https://github.com/GabOof/DevPulse
+
+---
+
+## Funcionalidades
+
+- Análise de repositórios públicos do GitHub
+- Autenticação utilizando GitHub OAuth
+- Suporte a repositórios privados para usuários autenticados
+- Métricas de atividade de commits
+- Distribuição de linguagens
+- Análise de colaboração entre contribuidores
+- Commit Intelligence
+- Project Health Score
+- Histórico de análises
+- Snapshots de métricas
+- Visualização da evolução do projeto
+- Cache de consultas à GitHub API
+- Exibição de informações de rate limit
+- API com rate limiting
+- Health check e readiness check
+- Persistência em PostgreSQL
+
+---
+
 ## Tecnologias
 
 ### Frontend
@@ -32,13 +69,18 @@ A aplicação permite analisar repositórios públicos sem autenticação e, atr
 - Prisma ORM
 - `@prisma/adapter-pg`
 
-### Autenticação
+### Autenticação e segurança
 
 - GitHub OAuth
 - PKCE
-- sessões server-side
-- cookies HttpOnly
-- AES-256-GCM para proteção de tokens armazenados
+- State validation
+- Sessões server-side
+- Cookies HttpOnly
+- Cookies Secure em produção
+- AES-256-GCM para proteção dos tokens armazenados
+- Rate limiting
+- CORS
+- Security headers
 
 ### Integração
 
@@ -51,20 +93,31 @@ A aplicação permite analisar repositórios públicos sem autenticação e, atr
 
 ### Infraestrutura
 
+- GitHub Pages — frontend
+- Render — backend
+- Neon — PostgreSQL de produção
 - Docker
 - Docker Compose
+- GitHub Actions
 
 ---
 
-## Requisitos
+## Arquitetura
 
-Para executar o projeto localmente é necessário possuir:
+```text
+                    GitHub REST API
+                           ▲
+                           │
+                           │
+GitHub Pages         Render API
+React + Vite  ───►  Node + Fastify
+                           │
+                           │ Prisma
+                           ▼
+                    Neon PostgreSQL
+```
 
-- Node.js
-- npm
-- Docker
-- Docker Compose
-- Git
+Em desenvolvimento, o PostgreSQL é executado localmente através de Docker Compose.
 
 ---
 
@@ -86,16 +139,22 @@ cd DevPulse
 
 ## 2. Banco de dados
 
-O PostgreSQL pode ser iniciado através do Docker Compose:
+O PostgreSQL local pode ser iniciado através do Docker Compose:
 
 ```bash
 docker compose up -d
 ```
 
-Confira os containers:
+Confira o container:
 
 ```bash
 docker compose ps
+```
+
+A configuração local utiliza:
+
+```text
+localhost:5433
 ```
 
 ---
@@ -131,10 +190,9 @@ NODE_ENV=development
 
 HOST=0.0.0.0
 PORT=3333
-
 TRUST_PROXY=false
 
-DATABASE_URL=postgresql://devpulse:devpulse@localhost:5432/devpulse
+DATABASE_URL=postgresql://devpulse:devpulse@localhost:5433/devpulse
 
 FRONTEND_URL=http://localhost:5173
 
@@ -143,7 +201,6 @@ GITHUB_CLIENT_SECRET=your-github-client-secret
 GITHUB_CALLBACK_URL=http://localhost:3333/api/auth/github/callback
 
 SESSION_COOKIE_NAME=devpulse_session
-
 AUTH_ENCRYPTION_KEY=your-64-character-hexadecimal-key
 
 RATE_LIMIT_MAX=120
@@ -152,11 +209,11 @@ CACHE_REPOSITORY_TTL_SECONDS=300
 CACHE_ANALYTICS_TTL_SECONDS=120
 ```
 
-> Nunca utilize as credenciais reais do ambiente de produção no `.env.example` ou em arquivos versionados pelo Git.
+> Nunca utilize credenciais reais do ambiente de produção no `.env.example` ou em arquivos versionados pelo Git.
 
 ---
 
-## Gerando AUTH_ENCRYPTION_KEY
+## Gerando `AUTH_ENCRYPTION_KEY`
 
 A chave utilizada para criptografar tokens deve possuir **32 bytes**, representados por **64 caracteres hexadecimais**.
 
@@ -166,23 +223,17 @@ Uma chave pode ser gerada com:
 openssl rand -hex 32
 ```
 
-Exemplo de formato:
-
-```text
-64 caracteres hexadecimais
-```
-
 A chave real não deve ser adicionada ao Git.
 
-Alterar essa chave em um ambiente existente também torna tokens anteriormente criptografados ilegíveis.
+Alterar essa chave em um ambiente existente torna tokens anteriormente criptografados ilegíveis.
 
 ---
 
 ## GitHub OAuth App
 
-Para utilizar autenticação, crie uma OAuth App nas configurações de desenvolvedor do GitHub.
+Para utilizar a autenticação, crie uma OAuth App nas configurações de desenvolvedor do GitHub.
 
-Durante o desenvolvimento local, configure:
+Durante o desenvolvimento local, utilize:
 
 ```text
 Homepage URL:
@@ -202,6 +253,18 @@ GITHUB_CLIENT_SECRET=...
 GITHUB_CALLBACK_URL=http://localhost:3333/api/auth/github/callback
 ```
 
+No ambiente de produção, o callback utilizado pela aplicação é:
+
+```text
+https://devpulse-api-gab.onrender.com/api/auth/github/callback
+```
+
+e o frontend está disponível em:
+
+```text
+https://gaboof.github.io/DevPulse/
+```
+
 ---
 
 ## Prisma
@@ -212,10 +275,16 @@ Gere o Prisma Client:
 npx prisma generate
 ```
 
-Execute as migrations:
+Execute as migrations no ambiente de desenvolvimento:
 
 ```bash
 npx prisma migrate dev
+```
+
+Para aplicar migrations já existentes em produção:
+
+```bash
+npx prisma migrate deploy
 ```
 
 ---
@@ -231,6 +300,26 @@ A API ficará disponível em:
 ```text
 http://localhost:3333
 ```
+
+### Health check
+
+```text
+GET /health
+```
+
+Exemplo:
+
+```bash
+curl http://localhost:3333/health
+```
+
+### Readiness check
+
+```text
+GET /ready
+```
+
+O readiness verifica também a disponibilidade do banco de dados.
 
 ---
 
@@ -276,28 +365,45 @@ http://localhost:5173
 
 # Testes
 
-A API possui testes automatizados utilizando Vitest.
+## Backend
 
-Execute:
+Entre na API:
 
 ```bash
 cd apps/api
+```
 
+Execute os testes:
+
+```bash
 npm test
 ```
 
-Para validar o build:
+Para executar os testes uma única vez:
 
 ```bash
-npm run build
+npm run test:run
 ```
 
-No frontend:
+Para gerar cobertura:
+
+```bash
+npm run test:coverage
+```
+
+Para executar testes e build:
+
+```bash
+npm run check
+```
+
+---
+
+## Frontend
 
 ```bash
 cd apps/web
-
-npm run build
+npm run check
 ```
 
 ---
@@ -310,10 +416,19 @@ npm run build
 cd apps/api
 
 npm install
-
-npx prisma generate
-
 npm run build
+```
+
+Os arquivos compilados são gerados em:
+
+```text
+apps/api/dist
+```
+
+O backend de produção é executado no Render através de:
+
+```bash
+npm start
 ```
 
 ---
@@ -324,14 +439,176 @@ npm run build
 cd apps/web
 
 npm install
-
 npm run build
 ```
 
-Os arquivos de produção do Vite serão gerados em:
+Os arquivos de produção do Vite são gerados em:
 
 ```text
 apps/web/dist
+```
+
+---
+
+# Deploy
+
+## Frontend — GitHub Pages
+
+O frontend é publicado através do GitHub Actions.
+
+A aplicação utiliza:
+
+```text
+https://gaboof.github.io/DevPulse/
+```
+
+O Vite está configurado com:
+
+```text
+base: /DevPulse/
+```
+
+e o workflow realiza automaticamente:
+
+```text
+push em main
+      ↓
+npm ci
+      ↓
+npm run build
+      ↓
+apps/web/dist
+      ↓
+GitHub Pages
+```
+
+A URL da API é fornecida durante o build através da variável:
+
+```env
+VITE_API_URL=https://devpulse-api-gab.onrender.com
+```
+
+---
+
+## Backend — Render
+
+A API é publicada como um Web Service no Render:
+
+```text
+https://devpulse-api-gab.onrender.com
+```
+
+Configuração principal:
+
+```text
+Root Directory:
+apps/api
+
+Build Command:
+npm ci && npm run build
+
+Start Command:
+npm start
+```
+
+As credenciais e configurações de produção são armazenadas como variáveis de ambiente no Render e não são versionadas no Git.
+
+---
+
+## Banco de produção — Neon
+
+O ambiente de produção utiliza PostgreSQL hospedado no Neon.
+
+A API acessa o banco através da variável:
+
+```env
+DATABASE_URL
+```
+
+A connection string e as credenciais do banco nunca devem ser adicionadas ao repositório.
+
+Durante o desenvolvimento local, o projeto continua utilizando PostgreSQL através do Docker Compose.
+
+---
+
+# Ambientes
+
+```text
+DESENVOLVIMENTO
+
+React / Vite
+localhost:5173
+      │
+      ▼
+Fastify
+localhost:3333
+      │
+      ▼
+PostgreSQL / Docker
+localhost:5433
+```
+
+```text
+PRODUÇÃO
+
+GitHub Pages
+gaboof.github.io/DevPulse
+      │
+      ▼
+Render
+devpulse-api-gab.onrender.com
+      │
+      ▼
+Neon PostgreSQL
+```
+
+---
+
+# Segurança
+
+O DevPulse utiliza diferentes mecanismos para proteção da aplicação:
+
+- OAuth com PKCE
+- Validação de `state` durante autenticação
+- Tokens GitHub armazenados de forma criptografada
+- AES-256-GCM
+- Sessões mantidas no servidor
+- Cookies HttpOnly
+- Cookies Secure em produção
+- CORS restrito ao frontend
+- Rate limiting
+- Security headers
+- Credenciais fornecidas apenas por variáveis de ambiente
+- Nenhuma chave ou senha de produção armazenada no repositório
+
+---
+
+# Estrutura principal
+
+```text
+devpulse/
+├── .github/
+│   └── workflows/
+│       └── deploy-pages.yml
+│
+├── apps/
+│   ├── api/
+│   │   ├── prisma/
+│   │   ├── src/
+│   │   ├── package.json
+│   │   ├── prisma7.config.ts
+│   │   ├── tsconfig.json
+│   │   └── vitest.config.ts
+│   │
+│   └── web/
+│       ├── public/
+│       ├── src/
+│       ├── index.html
+│       ├── package.json
+│       └── vite.config.ts
+│
+├── docker-compose.yml
+└── README.md
 ```
 
 ---
@@ -342,15 +619,11 @@ Desenvolvido por **Gabrielle de Oliveira Fonseca** como projeto Full Stack de es
 
 GitHub:
 
-```text
 https://github.com/GabOof
-```
 
 Repositório:
 
-```text
 https://github.com/GabOof/DevPulse
-```
 
 ---
 
