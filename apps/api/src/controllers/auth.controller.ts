@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { env, isProduction } from "../config/env.js";
+import { env } from "../config/env.js";
 
 import { EncryptionService } from "../services/encryption.service.js";
 
@@ -50,6 +50,8 @@ interface CallbackQuery {
     error_description?: string;
 }
 
+type AuthRedirectStatus = "denied" | "invalid" | "expired" | "invalid_state" | "success" | "error";
+
 /*
  * =========================================================
  * COOKIE HELPERS
@@ -61,8 +63,16 @@ function getSessionCookieName(): string {
 }
 
 /*
- * Cookie temporário utilizado apenas
- * durante o fluxo OAuth.
+ * =========================================================
+ * OAUTH COOKIE
+ * =========================================================
+ *
+ * Este cookie existe apenas durante
+ * o redirecionamento OAuth.
+ *
+ * Podemos manter SameSite=Lax porque
+ * o callback do GitHub retorna por
+ * navegação de topo para nossa API.
  */
 
 function getOAuthCookieOptions() {
@@ -73,15 +83,48 @@ function getOAuthCookieOptions() {
 
         sameSite: "lax" as const,
 
-        secure: isProduction(),
+        secure: env.auth.sessionCookieSecure,
 
         maxAge: OAUTH_TTL_SECONDS,
     };
 }
 
+function getOAuthCookieClearOptions() {
+    return {
+        path: "/api/auth/github",
+
+        httpOnly: true,
+
+        sameSite: "lax" as const,
+
+        secure: env.auth.sessionCookieSecure,
+    };
+}
+
 /*
- * Cookie responsável pela sessão
- * autenticada do usuário.
+ * =========================================================
+ * SESSION COOKIE
+ * =========================================================
+ *
+ * Desenvolvimento:
+ *
+ * SameSite=Lax
+ * Secure=false
+ *
+ * Produção:
+ *
+ * SameSite=None
+ * Secure=true
+ *
+ * Em produção isso é necessário porque:
+ *
+ * Frontend:
+ * gaboof.github.io
+ *
+ * API:
+ * *.onrender.com
+ *
+ * pertencem a sites diferentes.
  */
 
 function getSessionCookieOptions(expires: Date) {
@@ -90,12 +133,76 @@ function getSessionCookieOptions(expires: Date) {
 
         httpOnly: true,
 
-        sameSite: "lax" as const,
+        sameSite: env.auth.sessionCookieSameSite,
 
-        secure: isProduction(),
+        secure: env.auth.sessionCookieSecure,
 
         expires,
     };
+}
+
+function getSessionCookieClearOptions() {
+    return {
+        path: "/",
+
+        httpOnly: true,
+
+        sameSite: env.auth.sessionCookieSameSite,
+
+        secure: env.auth.sessionCookieSecure,
+    };
+}
+
+/*
+ * =========================================================
+ * FRONTEND REDIRECT
+ * =========================================================
+ *
+ * Cria a URL de retorno do OAuth sem
+ * depender de FRONTEND_URL terminar
+ * ou não com "/".
+ *
+ * Exemplos:
+ *
+ * http://localhost:5173
+ *
+ * ->
+ *
+ * http://localhost:5173/?auth=success
+ *
+ *
+ * https://gaboof.github.io/DevPulse
+ *
+ * ->
+ *
+ * https://gaboof.github.io/DevPulse/?auth=success
+ */
+
+function getFrontendAuthRedirect(status: AuthRedirectStatus): string {
+    const url = new URL(env.frontendUrl);
+
+    /*
+     * GitHub Pages trabalha melhor com
+     * o pathname do projeto terminado
+     * em "/".
+     */
+
+    if (!url.pathname.endsWith("/")) {
+        url.pathname = `${url.pathname}/`;
+    }
+
+    /*
+     * Evita carregar query/hash que
+     * eventualmente tenham sido
+     * configurados em FRONTEND_URL.
+     */
+
+    url.search = "";
+    url.hash = "";
+
+    url.searchParams.set("auth", status);
+
+    return url.toString();
 }
 
 /*
@@ -190,8 +297,6 @@ export class AuthController {
 
         reply: FastifyReply
     ) {
-        const frontendUrl = env.frontendUrl;
-
         const { code, state, error } = request.query;
 
         /*
@@ -201,7 +306,7 @@ export class AuthController {
          */
 
         if (error) {
-            return reply.redirect(`${frontendUrl}/?auth=denied`);
+            return reply.redirect(getFrontendAuthRedirect("denied"));
         }
 
         /*
@@ -211,7 +316,7 @@ export class AuthController {
          */
 
         if (!code || !state) {
-            return reply.redirect(`${frontendUrl}/?auth=invalid`);
+            return reply.redirect(getFrontendAuthRedirect("invalid"));
         }
 
         /*
@@ -223,7 +328,7 @@ export class AuthController {
         const encryptedTransaction = request.cookies[OAUTH_COOKIE_NAME];
 
         if (!encryptedTransaction) {
-            return reply.redirect(`${frontendUrl}/?auth=expired`);
+            return reply.redirect(getFrontendAuthRedirect("expired"));
         }
 
         /*
@@ -237,15 +342,7 @@ export class AuthController {
         reply.clearCookie(
             OAUTH_COOKIE_NAME,
 
-            {
-                path: "/api/auth/github",
-
-                httpOnly: true,
-
-                sameSite: "lax",
-
-                secure: isProduction(),
-            }
+            getOAuthCookieClearOptions()
         );
 
         /*
@@ -261,7 +358,7 @@ export class AuthController {
 
             transaction = JSON.parse(decrypted) as OAuthTransaction;
         } catch {
-            return reply.redirect(`${frontendUrl}/?auth=invalid`);
+            return reply.redirect(getFrontendAuthRedirect("invalid"));
         }
 
         /*
@@ -271,7 +368,7 @@ export class AuthController {
          */
 
         if (transaction.expiresAt < Date.now()) {
-            return reply.redirect(`${frontendUrl}/?auth=expired`);
+            return reply.redirect(getFrontendAuthRedirect("expired"));
         }
 
         /*
@@ -281,7 +378,7 @@ export class AuthController {
          */
 
         if (!safeCompare(state, transaction.state)) {
-            return reply.redirect(`${frontendUrl}/?auth=invalid_state`);
+            return reply.redirect(getFrontendAuthRedirect("invalid_state"));
         }
 
         /*
@@ -332,11 +429,11 @@ export class AuthController {
                 getSessionCookieOptions(session.expiresAt)
             );
 
-            return reply.redirect(`${frontendUrl}/?auth=success`);
+            return reply.redirect(getFrontendAuthRedirect("success"));
         } catch (error) {
             request.log.error(error);
 
-            return reply.redirect(`${frontendUrl}/?auth=error`);
+            return reply.redirect(getFrontendAuthRedirect("error"));
         }
     }
 
@@ -382,15 +479,7 @@ export class AuthController {
             reply.clearCookie(
                 cookieName,
 
-                {
-                    path: "/",
-
-                    httpOnly: true,
-
-                    sameSite: "lax",
-
-                    secure: isProduction(),
-                }
+                getSessionCookieClearOptions()
             );
 
             return reply.status(401).send({
@@ -453,15 +542,7 @@ export class AuthController {
         reply.clearCookie(
             cookieName,
 
-            {
-                path: "/",
-
-                httpOnly: true,
-
-                sameSite: "lax",
-
-                secure: isProduction(),
-            }
+            getSessionCookieClearOptions()
         );
 
         return reply.send({

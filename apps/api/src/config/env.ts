@@ -1,4 +1,4 @@
-/*
+/**
  * =========================================================
  * ENVIRONMENT CONFIGURATION
  * =========================================================
@@ -79,8 +79,16 @@ function validateUrl(name: string, value: string): string {
     }
 }
 
+function urlOrigin(name: string, value: string): string {
+    try {
+        return new URL(value).origin;
+    } catch {
+        throw new Error(`ENV_INVALID_URL_${name}`);
+    }
+}
+
 function validateEncryptionKey(value: string): string {
-    /*
+    /**
      * AES-256:
      *
      * 32 bytes
@@ -95,14 +103,14 @@ function validateEncryptionKey(value: string): string {
     return value;
 }
 
-/*
+/**
  * =========================================================
  * ENV
  * =========================================================
  */
 
 export const env = {
-    /*
+    /**
      * =====================================================
      * APPLICATION
      * =====================================================
@@ -120,7 +128,7 @@ export const env = {
         return positiveIntegerEnv("PORT", 3333);
     },
 
-    /*
+    /**
      * =====================================================
      * PROXY
      * =====================================================
@@ -129,8 +137,7 @@ export const env = {
      * está diretamente exposta.
      *
      * Em produção atrás de um proxy confiável,
-     * como load balancer/reverse proxy,
-     * configure:
+     * como Render, configure:
      *
      * TRUST_PROXY=true
      */
@@ -139,7 +146,7 @@ export const env = {
         return booleanEnv("TRUST_PROXY", false);
     },
 
-    /*
+    /**
      * =====================================================
      * DATABASE
      * =====================================================
@@ -149,10 +156,19 @@ export const env = {
         return requireEnv("DATABASE_URL");
     },
 
-    /*
+    /**
      * =====================================================
      * FRONTEND
      * =====================================================
+     *
+     * FRONTEND_URL representa a URL completa
+     * da aplicação web.
+     *
+     * Desenvolvimento:
+     * http://localhost:5173
+     *
+     * Produção:
+     * https://gaboof.github.io/DevPulse
      */
 
     get frontendUrl(): string {
@@ -161,7 +177,26 @@ export const env = {
         return validateUrl("FRONTEND_URL", value);
     },
 
-    /*
+    /**
+     * Origin utilizada pelo CORS.
+     *
+     * Exemplo:
+     *
+     * FRONTEND_URL:
+     * https://gaboof.github.io/DevPulse
+     *
+     * FRONTEND_ORIGIN derivada:
+     * https://gaboof.github.io
+     *
+     * O navegador envia somente a origin
+     * no header Origin, sem pathname.
+     */
+
+    get frontendOrigin(): string {
+        return urlOrigin("FRONTEND_URL", env.frontendUrl);
+    },
+
+    /**
      * =====================================================
      * GITHUB
      * =====================================================
@@ -177,17 +212,13 @@ export const env = {
         },
 
         get callbackUrl(): string {
-            return validateUrl(
-                "GITHUB_CALLBACK_URL",
-
-                requireEnv("GITHUB_CALLBACK_URL")
-            );
+            return validateUrl("GITHUB_CALLBACK_URL", requireEnv("GITHUB_CALLBACK_URL"));
         },
     },
 
-    /*
+    /**
      * =====================================================
-     * AUTH
+     * AUTHENTICATION
      * =====================================================
      */
 
@@ -199,9 +230,39 @@ export const env = {
         get sessionCookieName(): string {
             return readEnv("SESSION_COOKIE_NAME") ?? "devpulse_session";
         },
+
+        /**
+         * Desenvolvimento:
+         *
+         * SameSite=Lax
+         * Secure=false
+         *
+         * Produção:
+         *
+         * SameSite=None
+         * Secure=true
+         *
+         * Isso é necessário porque:
+         *
+         * Frontend:
+         * gaboof.github.io
+         *
+         * Backend:
+         * *.onrender.com
+         *
+         * são sites diferentes.
+         */
+
+        get sessionCookieSameSite(): "lax" | "none" {
+            return env.nodeEnv === "production" ? "none" : "lax";
+        },
+
+        get sessionCookieSecure(): boolean {
+            return env.nodeEnv === "production";
+        },
     },
 
-    /*
+    /**
      * =====================================================
      * RATE LIMIT
      * =====================================================
@@ -213,7 +274,7 @@ export const env = {
         },
     },
 
-    /*
+    /**
      * =====================================================
      * CACHE
      * =====================================================
@@ -230,7 +291,7 @@ export const env = {
     },
 } as const;
 
-/*
+/**
  * =========================================================
  * ENVIRONMENT HELPERS
  * =========================================================
@@ -248,14 +309,14 @@ export function isDevelopment(): boolean {
     return !isProduction() && !isTest();
 }
 
-/*
+/**
  * =========================================================
  * STARTUP VALIDATION
  * =========================================================
  */
 
 export function validateEnvironment(): void {
-    /*
+    /**
      * Application
      */
 
@@ -264,19 +325,20 @@ export function validateEnvironment(): void {
     void env.port;
     void env.trustProxy;
 
-    /*
+    /**
      * Database
      */
 
     void env.databaseUrl;
 
-    /*
+    /**
      * Frontend
      */
 
     void env.frontendUrl;
+    void env.frontendOrigin;
 
-    /*
+    /**
      * GitHub
      */
 
@@ -284,20 +346,22 @@ export function validateEnvironment(): void {
     void env.github.clientSecret;
     void env.github.callbackUrl;
 
-    /*
+    /**
      * Authentication
      */
 
     void env.auth.encryptionKey;
     void env.auth.sessionCookieName;
+    void env.auth.sessionCookieSameSite;
+    void env.auth.sessionCookieSecure;
 
-    /*
+    /**
      * Rate limiting
      */
 
     void env.rateLimit.max;
 
-    /*
+    /**
      * Cache
      */
 

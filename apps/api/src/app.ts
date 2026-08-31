@@ -240,7 +240,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
      */
 
     await app.register(cors, {
-        origin: env.frontendUrl,
+        origin: env.frontendOrigin,
 
         credentials: true,
 
